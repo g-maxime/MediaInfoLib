@@ -39,6 +39,26 @@ extern MediaInfo_Config Config;
 //***************************************************************************
 
 //---------------------------------------------------------------------------
+Ztring XML_Encode (const Ztring& Data)
+{
+    Ztring Result;
+    wstring::size_type Pos;
+    for (Pos=0; Pos<Data.size(); Pos++)
+    {
+        switch (Data[Pos])
+        {
+            case __T('"'): Result+=__T("&quot;"); break;
+            case __T('&'): Result+=__T("&amp;"); break;
+            case __T('\''): Result+=__T("&apos;"); break;
+            case __T('<'): Result+=__T("&lt;"); break;
+            case __T('>'): Result+=__T("&lg;"); break;
+            default: Result+=Data[Pos];
+        }
+    }
+     return Result;
+}
+
+//---------------------------------------------------------------------------
 Ztring PBCore_MediaType(MediaInfo_Internal &MI)
 {
          if (MI.Count_Get(Stream_Video))
@@ -195,7 +215,7 @@ void PBCore_Transform(Ztring &ToReturn, MediaInfo_Internal &MI, stream_t StreamK
     if (!Temp.empty())
     {
         Temp.resize(Temp.size()-1);
-        ToReturn+=__T("\t\t\t<essenceTrackAnnotation>"); ToReturn+=Temp; ToReturn+=__T("</essenceTrackAnnotation>\n");
+        ToReturn+=__T("\t\t\t<essenceTrackAnnotation>"); ToReturn+=XML_Encode(Temp); ToReturn+=__T("</essenceTrackAnnotation>\n");
     }
 
     ToReturn+=__T("\t\t</pbcoreEssenceTrack>\n");

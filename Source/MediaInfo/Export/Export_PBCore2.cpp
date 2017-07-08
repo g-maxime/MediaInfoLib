@@ -45,6 +45,26 @@ extern MediaInfo_Config Config;
 //***************************************************************************
 
 //---------------------------------------------------------------------------
+Ztring XML_Encode (const Ztring& Data)
+{
+    Ztring Result;
+    wstring::size_type Pos;
+    for (Pos=0; Pos<Data.size(); Pos++)
+    {
+        switch (Data[Pos])
+        {
+            case __T('"'): Result+=__T("&quot;"); break;
+            case __T('&'): Result+=__T("&amp;"); break;
+            case __T('\''): Result+=__T("&apos;"); break;
+            case __T('<'): Result+=__T("&lt;"); break;
+            case __T('>'): Result+=__T("&lg;"); break;
+            default: Result+=Data[Pos];
+        }
+    }
+     return Result;
+}
+
+//---------------------------------------------------------------------------
 Ztring PBCore2_MediaType(MediaInfo_Internal &MI)
 {
     if (MI.Count_Get(Stream_Video))
@@ -333,7 +353,7 @@ void PBCore2_Transform(Ztring &ToReturn, MediaInfo_Internal &MI, stream_t Stream
                 ToReturn+=__T(" annotationType=\"");
                 ToReturn+=MI.Get(StreamKind, StreamPos, Pos, Info_Name);
                 ToReturn+=__T("\">");
-                ToReturn+=MI.Get(StreamKind, StreamPos, Pos);
+                ToReturn+=XML_Encode(MI.Get(StreamKind, StreamPos, Pos));
                 ToReturn+=__T("</essenceTrackAnnotation>\n");
             }
     ToReturn+=__T("\t</instantiationEssenceTrack>\n");
@@ -563,7 +583,7 @@ Ztring Export_PBCore2::Transform(MediaInfo_Internal &MI)
                 ToReturn+=__T(" annotationType=\"");
                 ToReturn+=MI.Get(Stream_General, 0, Pos, Info_Name);
                 ToReturn+=__T("\">");
-                ToReturn+=MI.Get(Stream_General, 0, Pos);
+                ToReturn+=XML_Encode(MI.Get(Stream_General, 0, Pos));
                 ToReturn+=__T("</instantiationAnnotation>\n");
             }
 
