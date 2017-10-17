@@ -98,6 +98,9 @@ xcopy ..\Project\MSVC2013\Example\HowToUse_Dll.vcxproj.filters MediaInfoDLL_Wind
 xcopy ..\Project\MSVC2015\*.sln MediaInfoDLL_Windows_i386\Developers\Project\MSVC2015\
 xcopy ..\Project\MSVC2015\Example\HowToUse_Dll.vcxproj MediaInfoDLL_Windows_i386\Developers\Project\MSVC2015\Example\
 xcopy ..\Project\MSVC2015\Example\HowToUse_Dll.vcxproj.filters MediaInfoDLL_Windows_i386\Developers\Project\MSVC2015\Example\
+xcopy ..\Project\MSVC2017\*.sln MediaInfoDLL_Windows_i386\Developers\Project\MSVC2017\
+xcopy ..\Project\MSVC2017\Example\HowToUse_Dll.vcxproj MediaInfoDLL_Windows_i386\Developers\Project\MSVC2017\Example\
+xcopy ..\Project\MSVC2017\Example\HowToUse_Dll.vcxproj.filters MediaInfoDLL_Windows_i386\Developers\Project\MSVC2017\Example\
 xcopy ..\Project\GCC\Example\Make* MediaInfoDLL_Windows_i386\Developers\Project\GCC\Example\
 xcopy ..\Project\Java\Example.JNA\*.java MediaInfoDLL_Windows_i386\Developers\Project\Java\Example.JNA\
 xcopy ..\Project\Java\Example.JNA\*.txt MediaInfoDLL_Windows_i386\Developers\Project\Java\Example.JNA\
@@ -137,9 +140,9 @@ rem --- Copying : Contrib ---
 xcopy ..\Contrib\*.* MediaInfoDLL_Windows_i386\Developers\Contrib\ /S
 
 rem --- Copying : DLL ---
-xcopy ..\Project\MSVC2015\Win32\Release\MediaInfo.dll MediaInfoDLL_Windows_i386\
-xcopy ..\Project\MSVC2015\Win32\Release\MediaInfo_InfoTip.dll MediaInfoDLL_Windows_i386\
-xcopy ..\Project\MSVC2015\ShellExtension\*.bat MediaInfoDLL_Windows_i386\
+xcopy ..\Project\MSVC2017\Win32\Release\MediaInfo.dll MediaInfoDLL_Windows_i386\
+xcopy ..\Project\MSVC2017\Win32\Release\MediaInfo_InfoTip.dll MediaInfoDLL_Windows_i386\
+xcopy ..\Project\MSVC2017\ShellExtension\*.bat MediaInfoDLL_Windows_i386\
 
 
 rem --- Compressing Archive ---
