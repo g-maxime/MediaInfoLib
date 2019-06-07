@@ -2306,7 +2306,9 @@ Ztring MediaInfo_Internal::Inform(std::vector<MediaInfo_Internal*>& Info)
     #endif //defined(MEDIAINFO_JSON_YES)
     {
         size_t FilePos=0;
-        ZtringListList MediaInfo_Custom_View; MediaInfo_Custom_View.Write(MediaInfoLib::Config.Option(__T("Inform_Get")));
+        Ztring Template = MediaInfoLib::Config.Option(__T("Inform_Get"));
+        Template.FindAndReplace(__T("\\r\\n"), __T("\n"), 0, Ztring_Recursive);
+        ZtringListList MediaInfo_Custom_View; MediaInfo_Custom_View.Write(Template);
         #if defined(MEDIAINFO_XML_YES)
         bool XML=false;
         if (MediaInfoLib::Config.Inform_Get()==__T("OLDXML"))
