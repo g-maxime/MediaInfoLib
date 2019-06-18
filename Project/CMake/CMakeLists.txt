@@ -358,6 +358,11 @@ endif()
 
 # disable some features. Maybe it should be enabled.
 target_compile_definitions(mediainfo PRIVATE MEDIAINFO_LIBMMS_NO)
+
+if(WIN32 AND BUILD_SHARED_LIBS)
+  target_compile_definitions(mediainfo PRIVATE MEDIAINFODLL_EXPORTS_NODLLEXPORT)
+endif()
+
 if(NOT CURL_FOUND)
   target_compile_definitions(mediainfo PRIVATE MEDIAINFO_LIBCURL_NO)
 else()
