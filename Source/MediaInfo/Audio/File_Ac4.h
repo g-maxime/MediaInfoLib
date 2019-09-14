@@ -28,14 +28,6 @@ public :
     int64u Frame_Count_Valid;
     bool   MustParse_dac4;
 
-    enum ac4_substream_type
-    {
-        Type_Ac4_Substream,
-        Type_Ac4_Hsf_Ext_Substream,
-        Type_Emdf_Payloads_Substream,
-        Type_Ac4_Presentation_Substream,
-        Type_Oamd_Substream
-    };
 
 
     struct drc_decoder_config_infos
@@ -45,17 +37,18 @@ public :
         drc_decoder_config_infos() : Compression_Curve_Flag(false), Gains_Config(0) {};
     };
 
+/*  struct ac4_substream_group_infos
+    {
+        bool Hsf_Ext;
+        bool Channel_Coded;
+        std::set<int8u> Substreams;
+    }; */
+
     struct ac4_substream_infos
     {
         bool Sus_Ver;
-        bool Pres_Ndot;
-        bool Alternative;
-        int16u Substream_Size;
+        bool Channel_Coded;
         int16u Channel_Mode;
-        int8u Substream_Groups;
-        int8u Presentation_Substreams;
-        ac4_substream_type Substream_Type;
-        ac4_substream_infos() : Sus_Ver(false), Pres_Ndot(false), Alternative(false), Substream_Size(0), Channel_Mode(0), Substream_Groups(0), Presentation_Substreams(0), Substream_Type(Type_Ac4_Substream) {};
     };
 
     //Constructor/Destructor
@@ -89,10 +82,10 @@ private :
     void ac4_substream_info();
     void ac4_substream_group_info();
     void ac4_hsf_ext_substream_info(bool b_substreams_present);
-    void ac4_substream_info_chan(bool b_substreams_present);
+    void ac4_substream_info_chan(bool sus_ver);
     void ac4_substream_info_ajoc(bool b_substreams_present);
     void ac4_substream_info_obj(bool b_substreams_present);
-    void ac4_presentation_substream_info(int8u n_substream_groups, int8u n_substreams_in_presentation);
+    void ac4_presentation_substream_info();
     void presentation_config_ext_info(int8u presentation_config);
     void bed_dyn_obj_assignment(int8u n_signals);
     void content_type();
@@ -112,6 +105,16 @@ private :
     void basic_metadata(int16u channel_mode, bool sus_ver);
     void extended_metadata(int16u channel_mode, bool sus_ver);
 
+    void custom_dmx_data(int8u pres_ch_mode, int8u pres_ch_mode_core, bool b_pres_4_back_channels_present, int8u pres_top_channel_pairs, bool b_pres_has_lfe);
+    void cdmx_parameters(int8u bs_ch_config, int8u out_ch_config);
+    void tool_scr_to_c_l();
+    void tool_b4_to_b2();
+    void tool_t4_to_t2();
+    void tool_t4_to_f_s_b();
+    void tool_t4_to_f_s();
+    void tool_t2_to_f_s_b();
+    void tool_t2_to_f_s();
+    void loud_corr(int8u pres_ch_mode, int8u pres_ch_mode_core, bool b_objects);
     void drc_frame(bool b_iframe);
     void drc_config(int8u& drc_decoder_nr_mode, std::map<int8u, int8u>& decoder_ids, std::map<int8u, drc_decoder_config_infos>& decoder_infos);
     void drc_data(int8u drc_decoder_nr_modes, std::map<int8u, int8u> decoder_ids, std::map<int8u, drc_decoder_config_infos> decoder_infos);
@@ -131,10 +134,65 @@ private :
     void Get_VB (int8u  &Info, const char* Name);
     void Skip_VB(const char* Name);
 
+    //Info
+    enum substream_type_t
+    {
+        Type_Ac4_Substream,
+        Type_Ac4_Hsf_Ext_Substream,
+        Type_Emdf_Payloads_Substream,
+        Type_Ac4_Presentation_Substream,
+        Type_Oamd_Substream
+    };
+
+    struct presentation
+    {
+        bool b_pres_ndot;
+        bool b_alternative;
+        int8u presentation_config;
+        int8u n_substream_groups;
+        vector<size_t> substream_group_info_specifiers;
+
+        presentation() :
+            presentation_config((int8u)-1)
+        {}
+    };
+    vector<presentation> Presentations;
+    struct group_substream
+    {
+        substream_type_t substream_type;
+        int8u substream_index;
+        int8u ch_mode_core;
+        int8u ch_mode;
+
+        bool b_4_back_channels_present; // TODO: Move to audio_substream
+        int8u top_channels_present;     // TODO: Move to audio_substream
+        bool b_static_dmx;              // TODO: Move to audio_substream
+
+        group_substream() :
+            ch_mode_core((int8u)-1),
+            ch_mode((int8u)-1),
+            b_4_back_channels_present(false),
+            top_channels_present(0),
+            b_static_dmx(false)
+        {}
+    };
+    struct group
+    {
+        vector<group_substream> Substreams;
+        int8u content_classifier;
+        string language_tag_bytes;
+        bool b_channel_coded;
+        bool b_hsf_ext;
+        group() :
+            content_classifier((int8u)-1)
+        {}
+    };
+    vector<group> Groups;
+
     //Utils
     bool CRC_Compute(size_t Size);
+    int8u Superset(int8u Ch_Mode1, int8u Ch_Mode2);
     int8u Channel_Mode_to_Ch_Mode(int16u Channel_Mode);
-
     bool Channel_Mode_Contains_Lfe(int16u Channel_Mode);
     bool Channel_Mode_Contains_C(int16u Channel_Mode);
     bool Channel_Mode_Contains_Lr(int16u Channel_Mode);
@@ -156,9 +214,12 @@ private :
     int8u sus_ver;
     int8u n_substreams;
 
-    std::map<int8u, ac4_substream_infos> Substream_Info;
-    std::map<int8u, int32u> Substream_Size;
-    std::map<int8u, ac4_substream_type> Substream_Type;
+
+    std::map<int8u, size_t> Substream_Size;
+    std::map<int8u, substream_type_t> Substream_Type;
+
+    std::map<int8u, ac4_substream_infos> Substream_Infos;
+    //std::map<int8u, ac4_substream_group_infos> Substream_Group_Infos;
 };
 
 } //NameSpace
