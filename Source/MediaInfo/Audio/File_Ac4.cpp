@@ -114,9 +114,86 @@ File_Ac4::~File_Ac4()
 // Streams management
 //***************************************************************************
 
+struct sized_array
+{
+    const size_t Size;
+    const char* Values[];
+};
+const char* Value(const sized_array& Array, size_t Pos)
+{
+    if (Pos>=Array.Size)
+        return "";
+    return Array.Values[Pos];
+}
+static const sized_array Ac4_content_classifier=
+{
+8,
+{
+"CM",
+"ME",
+"VI",
+"HI",
+"D",
+"C",
+"E",
+"VO",
+}
+};
+
+static const sized_array Ac4_ch_mode=
+{
+16,
+{
+"M",
+"L, R",
+"3.0",
+"5.0",
+"5.1",
+"L,C,R,Ls,Rs,Lrs,Rrs",
+"L,C,R,Ls,Rs,Lrs,Rrs,LFE",
+"L,C,R,Lw,Rw,Ls,Rs",
+"L,C,R,Lw,Rw,Ls,Rs,LFE",
+"L,C,R,Ls,Rs,Vhl,Vhr",
+"L,C,R,Ls,Rs,Vhl,Vhr,LFE",
+"7.0.4",
+"7.1.4",
+"9.0.4",
+"9.1.4",
+"22.2",
+}
+};
+
+static const sized_array Ac4_presentation_config=
+{
+7,
+{
+"Music and Effects + Dialogue",
+"Main + Dialogue Enhancement",
+"Main + Associate",
+"Music and Effects + Dialogue + Associate",
+"Main + Dialogue Enhancement + Associate",
+"Arbitrary Substream Groups",
+"EMDF Only",
+}
+};
+
 //---------------------------------------------------------------------------
 void File_Ac4::Streams_Fill()
 {
+    //
+    bool IFrames_IsVariable=false;
+    size_t IFrames_Value=0;
+    if (IFrames.size()>1)
+    {
+        IFrames_Value=IFrames[1]-IFrames[0];
+        for (size_t i=2; i<IFrames.size(); i++)
+            if (IFrames[i]-IFrames[i-1]!=IFrames_Value)
+            {
+                IFrames_IsVariable=true;
+                break;
+            }
+    }
+
     Fill(Stream_General, 0, General_Format, "AC-4");
 
     Stream_Prepare(Stream_Audio);
@@ -125,6 +202,116 @@ void File_Ac4::Streams_Fill()
     Fill(Stream_Audio, 0, Audio_Format_Version, __T("Version ")+Ztring::ToZtring(bitstream_version));
     Fill(Stream_Audio, 0, Audio_SamplingRate, fs_index?48000:44100);
     Fill(Stream_Audio, 0, Audio_FrameRate, Ac4_frame_rate[fs_index][frame_rate_index]);
+    if (IFrames_Value)
+        Fill(Stream_Audio, 0, "IFrameInterval", IFrames_IsVariable?Ztring(__T("Variable")):(Ztring::ToZtring(IFrames_Value)+__T(" frames")));
+    Fill(Stream_Audio, 0, "NumberOfOresentations", Presentations.size());
+    Fill(Stream_Audio, 0, "NumberOfSubstreams", Substream_Infos.size());
+
+    for (size_t p=0; p<Presentations.size(); p++)
+    {
+        const presentation& Presentation=Presentations[p];
+        string Language;
+        string Text;
+        for (size_t g=0; g<Presentation.substream_group_info_specifiers.size(); g++)
+        {
+            const group& Group=Groups[Presentation.substream_group_info_specifiers[g]];
+            if (!Group.language_tag_bytes.empty() && (Group.content_classifier==0 || Group.content_classifier==1 || Group.content_classifier==4))
+            {
+                if (!Language.empty())
+                    Language+=" / ";
+                Language+=Group.language_tag_bytes;
+            }
+            for (size_t s=0; s<Group.Substreams.size(); s++)
+            {
+                const group_substream& Substream=Group.Substreams[s];
+                if (Substream.ch_mode!=(int8u)-1)
+                {
+                    if (!Text.empty())
+                        Text += " / "; //TODO pres_ch_mode
+                    Text+=Value(Ac4_ch_mode, Substream.ch_mode);
+                }
+            }
+        }
+        string Summary=Text;
+        Summary+=' ';
+        Summary+=Presentation.presentation_config==(int8u)-1?"Main":Value(Ac4_presentation_config, Presentation.presentation_config);
+        if (!Language.empty())
+        {
+            Summary+=" (";
+            Summary+=Language;
+            Summary+=')';
+        }
+
+        Fill(Stream_Audio, 0, Ztring(__T("Presentation")+Ztring::ToZtring(p)).To_UTF8().c_str(), Summary);
+        //TODO Dialogue Normalization
+        if (!Language.empty())
+            Fill(Stream_Audio, 0, Ztring(__T("Presentation")+Ztring::ToZtring(p)+__T(" Language")).To_UTF8().c_str(), Language);
+        if (b_multi_pid_PresentAndValue!=(int8u)-1)
+            Fill(Stream_Audio, 0, Ztring(__T("Presentation")+Ztring::ToZtring(p)+__T(" MultipleStream")).To_UTF8().c_str(), b_multi_pid_PresentAndValue?"Yes":"No");
+
+        for (size_t s=0; s<Presentation.substream_group_info_specifiers.size(); s++)
+        {
+            Fill(Stream_Audio, 0, Ztring(__T("Presentation")+Ztring::ToZtring(p)+__T(" SubstreamGroups")).To_UTF8().c_str(), Presentation.substream_group_info_specifiers[s]);
+        }
+    }
+    for (size_t g=0; g<Groups.size(); g++)
+    {
+        const group& Group=Groups[g];
+        string Summary;
+        for (size_t p=0; p<Presentations.size(); p++)
+        {
+            const presentation& Presentation=Presentations[p];
+            for (size_t s=0; s<Presentation.substream_group_info_specifiers.size(); s++)
+            {
+                const size_t& Specifier=Presentation.substream_group_info_specifiers[s];
+                if (Specifier==g)
+                {
+                    if (!Summary.empty())
+                        Summary +=" / ";
+                    Summary+=Presentation.presentation_config==(int8u)-1?"Main":Value(Ac4_presentation_config, Presentation.presentation_config);
+                }
+            }
+        }
+        if (!Group.language_tag_bytes.empty())
+        {
+            Summary+=" (";
+            Summary+=Group.language_tag_bytes;
+            Summary+=')';
+        }
+        Fill(Stream_Audio, 0, Ztring(__T("Group")+Ztring::ToZtring(g)).To_UTF8().c_str(), Summary);
+        if (!Group.language_tag_bytes.empty())
+            Fill(Stream_Audio, 0, Ztring(__T("Group")+Ztring::ToZtring(g)+__T(" Language")).To_UTF8().c_str(), Group.language_tag_bytes);
+        if (Group.content_classifier!=(int8u)-1)
+            Fill(Stream_Audio, 0, Ztring(__T("Group")+Ztring::ToZtring(g)+__T(" Classifier")).To_UTF8().c_str(), Value(Ac4_content_classifier, Group.content_classifier));
+        Fill(Stream_Audio, 0, Ztring(__T("Group")+Ztring::ToZtring(g)+__T(" ChannelCoded")).To_UTF8().c_str(), Group.b_channel_coded?"Yes":"No");
+        Fill(Stream_Audio, 0, Ztring(__T("Group")+Ztring::ToZtring(g)+__T(" NumberOfSubstreams")).To_UTF8().c_str(), Group.Substreams.size());
+        for (size_t s=0; s<Group.Substreams.size(); s++)
+        {
+            const group_substream& Substream=Group.Substreams[s];
+            if (Substream.ch_mode!=(int8u)-1)
+                Fill(Stream_Audio, 0, Ztring(__T("Group")+Ztring::ToZtring(g)+__T(" Substream_Infoss")).To_UTF8().c_str(), Substream.substream_index);
+        }
+    }
+    for (map<int8u, ac4_substream_infos>::iterator Substream_Info=Substream_Infos.begin(); Substream_Info!=Substream_Infos.end(); Substream_Info++)
+    {
+        string Summary;
+        for (size_t g=0; g<Groups.size(); g++)
+        {
+            const group& Group=Groups[g];
+            for (size_t s=0; s<Group.Substreams.size(); s++)
+            {
+                const group_substream& Substream=Group.Substreams[s];
+                if (Substream.substream_index==Substream_Info->first && Substream.ch_mode!=(int8u)-1)
+                {
+                    if (!Summary.empty())
+                        Summary +=" / ";
+                    Summary+=Value(Ac4_ch_mode, Substream.ch_mode);
+                }
+            }
+        }
+        Fill(Stream_Audio, 0, Ztring(__T("Substream_Info")+Ztring::ToZtring(Substream_Info->first)).To_UTF8().c_str(), Summary);
+        Fill(Stream_Audio, 0, Ztring(__T("Substream_Info")+Ztring::ToZtring(Substream_Info->first)+__T(" ChannelLayout")).To_UTF8().c_str(), Summary); //TOFDO layout
+    }
 }
 
 //---------------------------------------------------------------------------
@@ -204,6 +391,8 @@ void File_Ac4::Synched_Init()
     DTS_End=FrameInfo.DTS;
     if (Frame_Count_NotParsedIncluded==(int64u)-1)
         Frame_Count_NotParsedIncluded=0; //No Frame_Count_NotParsedIncluded in the container
+
+    b_multi_pid_PresentAndValue=(int8u)-1;
 }
 
 //---------------------------------------------------------------------------
@@ -413,6 +602,7 @@ void File_Ac4::ac4_toc()
     max_group_index=0;
 
     int16u sequence_counter, n_presentations;
+    bool b_iframe_global;
     Element_Begin1("raw_ac4_toc");
     Get_S1 (2, bitstream_version,                               "bitstream_version");
     if (bitstream_version==3)
@@ -431,7 +621,9 @@ void File_Ac4::ac4_toc()
     TEST_SB_END();
     Get_SB (   fs_index,                                        "fs_index");
     Get_S1 (4, frame_rate_index,                                "frame_rate_index"); Param_Info1(Ac4_frame_rate[fs_index][frame_rate_index]);
-    Skip_SB(                                                    "b_iframe_global");
+    Get_SB (   b_iframe_global,                                 "b_iframe_global");
+    if (b_iframe_global)
+        IFrames.push_back(Frame_Count); //TODO
     TESTELSE_SB_SKIP(                                           "b_single_presentation");
         n_presentations=1;
     TESTELSE_SB_ELSE(                                           "b_single_presentation");
@@ -648,7 +840,9 @@ void File_Ac4::ac4_presentation_v1_info()
         }
         else
         {
-            Skip_SB(                                            "b_multi_pid");
+            bool b_multi_pid;
+            Get_SB(b_multi_pid,                                 "b_multi_pid");
+            b_multi_pid_PresentAndValue=b_multi_pid;
             switch (presentation_config) // TODO: Symplify
             {
             case 0: // Music and Effects + Dialogue
@@ -1277,7 +1471,8 @@ void File_Ac4::bed_dyn_obj_assignment(int8u n_signals)
 void File_Ac4::content_type()
 {
     Element_Begin1(                                             "content_type");
-        Skip_S1(3,                                              "content_classifier");
+        int8u content_classifier;
+        Get_S1 (3, content_classifier,                          "content_classifier");
         TEST_SB_SKIP(                                           "b_language_indicator");
             TESTELSE_SB_SKIP(                                   "b_serialized_language_tag");
                 Skip_SB(                                        "b_start_tag");
@@ -1286,9 +1481,15 @@ void File_Ac4::content_type()
                 int8u n_language_tag_bytes;
                 Get_S1(6, n_language_tag_bytes,                 "n_language_tag_bytes");
                 for (int8u Pos=0; Pos<n_language_tag_bytes; Pos++)
-                    Skip_S1(8,                                  "language_tag_bytes");
+                {
+                    int8u language_tag_bytes;
+                    Get_S1 (8, language_tag_bytes,              "language_tag_bytes");
+                    Groups.back().language_tag_bytes+=(language_tag_bytes<0x80?language_tag_bytes:'?');
+                }
             TESTELSE_SB_END();
         TEST_SB_END();
+
+        Groups.back().content_classifier=content_classifier;
     Element_End0();
 }
 

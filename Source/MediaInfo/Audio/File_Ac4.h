@@ -216,6 +216,8 @@ private :
     int8u n_substreams;
 
 
+    vector<size_t> IFrames;
+    int8u b_multi_pid_PresentAndValue;
     std::vector<size_t> Substream_Size;
     std::map<int8u, substream_type_t> Substream_Type;
 
