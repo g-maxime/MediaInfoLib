@@ -1684,7 +1684,7 @@ void File_Ac4::ac4_presentation_substream(size_t Substream_Index)
 
     Skip_S1(7,                                                  "dialnorm_bits");
     TEST_SB_SKIP(                                               "b_further_loudness_info");
-        further_loudness_info(1, 1);
+        further_loudness_info(true, true);
     TEST_SB_END();
 
     int16u drc_metadata_size_value;
@@ -1698,7 +1698,7 @@ void File_Ac4::ac4_presentation_substream(size_t Substream_Index)
     //TODO: fix drc_frame(Substream_Info[Substream_Index].Pres_Ndot);
     Skip_BS(drc_metadata_size_value,                            "drc_metadata");
 
-    if (Presentations[Substream_Index].n_substream_groups)
+    if (Presentations[Substream_Index].n_substream_groups>1)
     {
         TEST_SB_SKIP(                                           "b_substream_group_gains_present");
             TESTELSE_SB_SKIP(                                   "b_keep");
@@ -2483,7 +2483,7 @@ void File_Ac4::further_loudness_info(bool sus_ver, bool b_presentation_ldn)
 {
     int8u loudness_version, loud_prac_type, e_bits_size; // TODO: check if size is sufficient
     Element_Begin1("further_loudness_info");
-    if (!b_presentation_ldn || !sus_ver)
+    if (b_presentation_ldn || !sus_ver)
     {
         Get_S1(2, loudness_version,                             "loudness_version");
         if (loudness_version==3)
@@ -2528,7 +2528,7 @@ void File_Ac4::further_loudness_info(bool sus_ver, bool b_presentation_ldn)
         Skip_S2(11,                                             "max_truepk");
     TEST_SB_END();
 
-    if (!b_presentation_ldn || !sus_ver)
+    if (b_presentation_ldn || !sus_ver)
     {
         TEST_SB_SKIP(                                           "b_prgmbndy");
             bool prgmbndy_bit=false;
@@ -2551,6 +2551,10 @@ void File_Ac4::further_loudness_info(bool sus_ver, bool b_presentation_ldn)
 
     TEST_SB_SKIP(                                               "b_loudmntry");
         Skip_S2(11,                                             "loudmntry");
+    TEST_SB_END();
+
+    TEST_SB_SKIP(                                               "b_max_loudmntry");
+        Skip_S2(11,                                             "max_loudmntry");
     TEST_SB_END();
 
     if (sus_ver)
