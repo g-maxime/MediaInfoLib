@@ -243,11 +243,14 @@ void File_Ac4::Streams_Fill()
         }
 
         Fill(Stream_Audio, 0, Ztring(__T("Presentation")+Ztring::ToZtring(p)).To_UTF8().c_str(), Summary);
-        //TODO Dialogue Normalization
+        if (Presentation.LoudnessInfo.dialnorm_bits!=(int8u)-1)
+            Fill(Stream_Audio, 0, Ztring(__T("Presentation")+Ztring::ToZtring(p)+__T(" dialnorm")).To_UTF8().c_str(), -0.25*Presentation.LoudnessInfo.dialnorm_bits, 2);
         if (!Language.empty())
             Fill(Stream_Audio, 0, Ztring(__T("Presentation")+Ztring::ToZtring(p)+__T(" Language")).To_UTF8().c_str(), Language);
-        if (b_multi_pid_PresentAndValue!=(int8u)-1)
-            Fill(Stream_Audio, 0, Ztring(__T("Presentation")+Ztring::ToZtring(p)+__T(" MultipleStream")).To_UTF8().c_str(), b_multi_pid_PresentAndValue?"Yes":"No");
+        if (Presentation.b_multi_pid_PresentAndValue!=(int8u)-1)
+            Fill(Stream_Audio, 0, Ztring(__T("Presentation")+Ztring::ToZtring(p)+__T(" MultipleStream")).To_UTF8().c_str(), Presentation.b_multi_pid_PresentAndValue?"Yes":"No");
+        if (Presentation.LoudnessInfo.truepk!=(int16u)-1)
+            Fill(Stream_Audio, 0, Ztring(__T("Presentation")+Ztring::ToZtring(p)+__T(" TruePeak")).To_UTF8().c_str(), (Presentation.LoudnessInfo.truepk-1024)/10.0, 1);
 
         for (size_t s=0; s<Presentation.substream_group_info_specifiers.size(); s++)
         {
@@ -309,8 +312,12 @@ void File_Ac4::Streams_Fill()
                 }
             }
         }
-        Fill(Stream_Audio, 0, Ztring(__T("Substream_Info")+Ztring::ToZtring(Substream_Info->first)).To_UTF8().c_str(), Summary);
-        Fill(Stream_Audio, 0, Ztring(__T("Substream_Info")+Ztring::ToZtring(Substream_Info->first)+__T(" ChannelLayout")).To_UTF8().c_str(), Summary); //TOFDO layout
+        Fill(Stream_Audio, 0, Ztring(__T("Substream")+Ztring::ToZtring(Substream_Info->first)).To_UTF8().c_str(), Summary);
+        Fill(Stream_Audio, 0, Ztring(__T("Substream")+Ztring::ToZtring(Substream_Info->first)+__T(" ChannelLayout")).To_UTF8().c_str(), Summary); //TODO layout
+        if (Substream_Info->second.LoudnessInfo.dialnorm_bits!=(int8u)-1)
+            Fill(Stream_Audio, 0, Ztring(__T("Substream")+Ztring::ToZtring(Substream_Info->first)+__T(" dialnorm")).To_UTF8().c_str(), -0.25*Substream_Info->second.LoudnessInfo.dialnorm_bits, 2);
+        if (Substream_Info->second.LoudnessInfo.truepk!=(int16u)-1)
+            Fill(Stream_Audio, 0, Ztring(__T("Substream")+Ztring::ToZtring(Substream_Info->first)+__T(" TruePeak")).To_UTF8().c_str(), (Substream_Info->second.LoudnessInfo.truepk-1024)/10.0, 1);
     }
 }
 
@@ -391,8 +398,6 @@ void File_Ac4::Synched_Init()
     DTS_End=FrameInfo.DTS;
     if (Frame_Count_NotParsedIncluded==(int64u)-1)
         Frame_Count_NotParsedIncluded=0; //No Frame_Count_NotParsedIncluded in the container
-
-    b_multi_pid_PresentAndValue=(int8u)-1;
 }
 
 //---------------------------------------------------------------------------
@@ -795,7 +800,7 @@ void File_Ac4::ac4_presentation_v1_info()
     Presentations.resize(Presentations.size()+1);
 
     bool b_single_substream_group, b_add_emdf_substreams=false;
-    int8u presentation_config, n_substream_groups=0;
+    int8u presentation_config, n_substream_groups=0, b_multi_pid_PresentAndValue=(int8u)-1;
 
     Element_Begin1(                                             "ac4_presentation_v1_info");
     Get_SB(b_single_substream_group,                            "b_single_substream_group");
@@ -914,6 +919,7 @@ void File_Ac4::ac4_presentation_v1_info()
     }
 
     Presentations.back().n_substream_groups=n_substream_groups;
+    Presentations.back().b_multi_pid_PresentAndValue=b_multi_pid_PresentAndValue;
     Element_End0();
 }
 
@@ -1768,7 +1774,7 @@ void File_Ac4::ac4_presentation_substream(size_t Substream_Index)
 {
     int8u name_length=32, n_targets, add_data_bytes;
 
-    int8u pres_ch_mode=(int8u)-1, pres_ch_mode_core=(int8u)-1, pres_top_channel_pairs=0;
+    int8u pres_ch_mode=(int8u)-1, pres_ch_mode_core=(int8u)-1, pres_top_channel_pairs=0, dialnorm_bits;
     bool b_obj_or_ajoc=false, b_obj_or_ajoc_adaptive=false, b_pres_4_back_channels_present=false, b_pres_has_lfe=false;
 
     for (size_t Pos=0; Pos<Presentations[Substream_Index].substream_group_info_specifiers.size(); Pos++)
@@ -1883,9 +1889,9 @@ void File_Ac4::ac4_presentation_substream(size_t Substream_Index)
         Skip_BS(add_data_bytes*8,                               "add_data");
     TEST_SB_END();
 
-    Skip_S1(7,                                                  "dialnorm_bits");
+    Get_S1 (7, dialnorm_bits,                                   "dialnorm_bits");
     TEST_SB_SKIP(                                               "b_further_loudness_info");
-        further_loudness_info(true, true);
+        further_loudness_info(Presentations.back().LoudnessInfo, true, true);
     TEST_SB_END();
 
     int16u drc_metadata_size_value;
@@ -1935,12 +1941,14 @@ void File_Ac4::ac4_presentation_substream(size_t Substream_Index)
         Skip_S1(byte_align,                                     "byte_align");
     BS_End();
     Element_End0();
+
+    Presentations[Substream_Index].LoudnessInfo.dialnorm_bits=dialnorm_bits;
 }
 //---------------------------------------------------------------------------
 void File_Ac4::metadata(size_t Substream_Index)
 {
     Element_Begin1("metadata");
-    basic_metadata(Substream_Infos[Substream_Index].Channel_Mode, Substream_Infos[Substream_Index].Sus_Ver);
+    basic_metadata(Substream_Infos[Substream_Index].LoudnessInfo, Substream_Infos[Substream_Index].Channel_Mode, Substream_Infos[Substream_Index].Sus_Ver);
     extended_metadata(Substream_Infos[Substream_Index].Channel_Mode, Substream_Infos[Substream_Index].Sus_Ver);
     int8u tools_metadata_size;
     Get_S1(7, tools_metadata_size, "tools_metadata_size");
@@ -2001,18 +2009,18 @@ void File_Ac4::metadata(size_t Substream_Index)
 }
 
 //---------------------------------------------------------------------------
-void File_Ac4::basic_metadata(int16u channel_mode, bool sus_ver)
+void File_Ac4::basic_metadata(loudness_info& LoudnessInfo, int16u channel_mode, bool sus_ver)
 {
-    int8u ch_mode=Channel_Mode_to_Ch_Mode(channel_mode);
+    int8u ch_mode=Channel_Mode_to_Ch_Mode(channel_mode), dialnorm_bits=(int8u)-1;
     Element_Begin1("basic_metadata");
     if (!sus_ver)
-        Skip_S1(7,                                              "dialnorm_bits");
+        Get_S1 (7, dialnorm_bits,                               "dialnorm_bits");
 
     TEST_SB_SKIP(                                               "b_more_basic_metadata");
         if (!sus_ver)
         {
             TEST_SB_SKIP(                                       "b_further_loudness_info");
-                further_loudness_info(sus_ver, false);
+                further_loudness_info(LoudnessInfo, sus_ver, false);
             TEST_SB_END();
         }
         else
@@ -2020,7 +2028,7 @@ void File_Ac4::basic_metadata(int16u channel_mode, bool sus_ver)
             TEST_SB_SKIP(                                       "b_substream_loudness_info");
                 Skip_S1(8,                                      "substream_loudness_bits");
                 TEST_SB_SKIP(                                   "b_further_substream_loudness_info");
-                    further_loudness_info(sus_ver, false);
+                    further_loudness_info(LoudnessInfo, sus_ver, false);
                 TEST_SB_END();
             TEST_SB_END();
         }
@@ -2095,6 +2103,8 @@ void File_Ac4::basic_metadata(int16u channel_mode, bool sus_ver)
         TEST_SB_END();
     TEST_SB_END();
     Element_End0();
+
+    LoudnessInfo.dialnorm_bits=dialnorm_bits;
 }
 
 //---------------------------------------------------------------------------
@@ -2680,8 +2690,9 @@ void File_Ac4::drc_compression_curve()
 }
 
 //---------------------------------------------------------------------------
-void File_Ac4::further_loudness_info(bool sus_ver, bool b_presentation_ldn)
+void File_Ac4::further_loudness_info(loudness_info& LoudnessInfo, bool sus_ver, bool b_presentation_ldn)
 {
+    int16u truepk=(int16u)-1;
     int8u loudness_version, loud_prac_type, e_bits_size; // TODO: check if size is sufficient
     Element_Begin1("further_loudness_info");
     if (b_presentation_ldn || !sus_ver)
@@ -2722,7 +2733,7 @@ void File_Ac4::further_loudness_info(bool sus_ver, bool b_presentation_ldn)
     TEST_SB_END();
 
     TEST_SB_SKIP(                                               "b_truepk");
-        Skip_S2(11,                                             "truepk");
+        Get_S2 (11, truepk,                                     "truepk");
     TEST_SB_END();
 
     TEST_SB_SKIP(                                               "b_max_truepk");
@@ -2786,6 +2797,8 @@ void File_Ac4::further_loudness_info(bool sus_ver, bool b_presentation_ldn)
         Skip_BS(e_bits_size,                                    "extensions_bits");
     TEST_SB_END();
     Element_End0();
+
+    LoudnessInfo.truepk=truepk;
 }
 
 //---------------------------------------------------------------------------

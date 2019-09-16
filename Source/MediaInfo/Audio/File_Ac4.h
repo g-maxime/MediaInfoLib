@@ -44,11 +44,23 @@ public :
         std::set<int8u> Substreams;
     }; */
 
+    struct loudness_info
+    {
+        int8u dialnorm_bits;
+        int16u truepk;
+
+        loudness_info() :
+            dialnorm_bits((int8u)-1),
+            truepk((int16u)-1)
+        {}
+    };
+
     struct ac4_substream_infos
     {
         bool Sus_Ver;
         bool Channel_Coded;
         int16u Channel_Mode;
+        loudness_info LoudnessInfo;
     };
 
     //Constructor/Destructor
@@ -102,7 +114,7 @@ private :
     void ac4_presentation_substream(size_t Substream_Index);
 
     void metadata(size_t Substream_Index);
-    void basic_metadata(int16u channel_mode, bool sus_ver);
+    void basic_metadata(loudness_info& LoudnessInfo, int16u channel_mode, bool sus_ver);
     void extended_metadata(int16u channel_mode, bool sus_ver);
 
     void custom_dmx_data(int8u pres_ch_mode, int8u pres_ch_mode_core, bool b_pres_4_back_channels_present, int8u pres_top_channel_pairs, bool b_pres_has_lfe);
@@ -122,7 +134,7 @@ private :
     void drc_decoder_mode_config(int8u Index, std::map<int8u, int8u>& decoder_ids, std::map<int8u, drc_decoder_config_infos>& decoder_infos);
     void drc_compression_curve();
 
-    void further_loudness_info(bool sus_ver, bool b_presentation_ldn);
+    void further_loudness_info(loudness_info& LoudnessInfo, bool sus_ver, bool b_presentation_ldn);
 
     void dac4();
 
@@ -151,7 +163,9 @@ private :
         int8u substream_index;
         int8u presentation_config;
         int8u n_substream_groups;
+        int8u b_multi_pid_PresentAndValue;
         vector<size_t> substream_group_info_specifiers;
+        loudness_info LoudnessInfo;
 
         presentation() :
             presentation_config((int8u)-1)
@@ -217,7 +231,6 @@ private :
 
 
     vector<size_t> IFrames;
-    int8u b_multi_pid_PresentAndValue;
     std::vector<size_t> Substream_Size;
     std::map<int8u, substream_type_t> Substream_Type;
 
