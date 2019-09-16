@@ -148,6 +148,7 @@ private :
     {
         bool b_pres_ndot;
         bool b_alternative;
+        int8u substream_index;
         int8u presentation_config;
         int8u n_substream_groups;
         vector<size_t> substream_group_info_specifiers;
@@ -215,7 +216,7 @@ private :
     int8u n_substreams;
 
 
-    std::map<int8u, size_t> Substream_Size;
+    std::vector<size_t> Substream_Size;
     std::map<int8u, substream_type_t> Substream_Type;
 
     std::map<int8u, ac4_substream_infos> Substream_Infos;
