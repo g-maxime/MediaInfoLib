@@ -303,6 +303,8 @@ void File_Ac4::Data_Parse()
         Element_Size+=2;
         Skip_B2(                                                "crc_word");
     }
+
+    Substream_Size.clear();
 }
 
 //---------------------------------------------------------------------------
@@ -311,49 +313,86 @@ void File_Ac4::raw_ac4_frame()
     Element_Begin1("raw_ac4_frame");
     BS_Begin();
     ac4_toc();
-
-    if (payload_base)
-        Skip_BS(payload_base,                                   "fill_area");
-
-    Skip_S1(BS->Remain()%8,                                     "byte_align");
-
-    //TODO: temporary code, "rewind" bitstream later
-    size_t presentation_pos=0;
-    for (size_t Pos=0; Pos<n_substreams; Pos++)
-    {
-        if (Substream_Type[Pos]==Type_Ac4_Presentation_Substream)
-            ac4_presentation_substream(presentation_pos++);
-        else
-            Skip_BS(Substream_Size[Pos]*8,                      "substream_data");
-    }
-
-/*
-    for (size_t Pos=0; Pos<n_substreams; Pos++)
-    {
-        size_t Pos_Before, Pos_After;
-        switch(Substream_Info[Pos].Substream_Type)
-        {
-        case Type_Ac4_Substream:
-            ac4_substream(Pos);
-        break;
-        case Type_Ac4_Hsf_Ext_Substream:
-            // TODO: ac4_hsf_ext_substream(); (skip)
-        break;
-        case Type_Emdf_Payloads_Substream:
-            // TODO: emdf_payloads_substream(); (skip)
-        break;
-          case Type_Ac4_Presentation_Substream:
-            ac4_presentation_substream(Pos);
-          break;
-        case Type_Oamd_Substream:
-            // TODO: oamd_substream(); (skip)
-        default:
-            Skip_BS(Substream_Info[Pos].Substream_Size*8,       "substream_data");
-        break;
-        }
-    }
-*/
+    size_t byte_align=BS->Remain()%8;
+    if (byte_align)
+        Skip_S1(byte_align,                                     "byte_align");
     BS_End();
+    if (payload_base)
+        Skip_XX(payload_base,                                   "fill_area");
+    int64u Substreams_StartOffset=Element_Offset;
+
+    //Check integrity
+    if (Substream_Size.empty())
+        Substream_Size.push_back(Element_Size-Substreams_StartOffset); // 1 substream only
+    size_t Substreams_EndOffset=Substreams_StartOffset;
+    for (size_t i=0; i<Substream_Size.size(); i++)
+        Substreams_EndOffset+=Substream_Size[i];
+    if (Substreams_EndOffset>Element_Size)
+    {
+        Skip_XX(Element_Size-Element_Offset,                    "?");
+        return;
+    }
+
+    //Parsing presentation substreams first
+    for (size_t i=0; i<Presentations.size(); i++)
+    {
+        int8u substream_index=Presentations[i].substream_index;
+        if (substream_index>=Substream_Size.size())
+        {
+            Skip_XX(Element_Size-Element_Offset,                "?");
+            return;
+        }
+        Element_Offset=Substreams_StartOffset;
+        for (size_t i=0; i<substream_index; i++)
+            Element_Offset+=Substream_Size[i];
+        int64u Element_Size_Save=Element_Size;
+        Element_Size=Element_Offset+Substream_Size[substream_index];
+
+        ac4_presentation_substream(i);
+
+        if (Element_Offset<Element_Size)
+            Skip_XX(Element_Size-Element_Offset,                "?");
+        Element_Size=Element_Size_Save;
+    }
+
+    //Parsing other substreams
+    for (int8u substream_index=0; substream_index<n_substreams; substream_index++)
+    {
+        Element_Offset=Substreams_StartOffset;
+        for (size_t i=0; i<substream_index; i++)
+            Element_Offset+=Substream_Size[i];
+        int64u Element_Size_Save=Element_Size;
+        Element_Size=Element_Offset+Substream_Size[substream_index];
+
+        switch(Substream_Type[substream_index])
+        {
+            case Type_Ac4_Substream:
+                ac4_substream(substream_index);
+                break;
+            case Type_Ac4_Hsf_Ext_Substream:
+                Skip_XX(Substream_Size[substream_index],        "ac4_hsf_ext_substream");
+                // TODO: ac4_hsf_ext_substream(); (skip)
+                break;
+            case Type_Emdf_Payloads_Substream:
+                Skip_XX(Substream_Size[substream_index],        "emdf_payloads_substream");
+                // TODO: emdf_payloads_substream(); (skip)
+                break;
+            case Type_Ac4_Presentation_Substream:
+                  Element_Offset=Element_Size; // Previously parsed, skip
+                  break;
+            case Type_Oamd_Substream:
+                Skip_XX(Substream_Size[substream_index],        "oamd_substream");
+                // TODO: oamd_substream(); (skip)
+                break;
+            default:
+                Skip_XX(Substream_Size[substream_index],        "substream_data");
+        }
+
+        if (Element_Offset<Element_Size)
+            Skip_XX(Element_Size-Element_Offset,                "?");
+        Element_Size=Element_Size_Save;
+    }
+
     Element_End0();
 
     FILLING_BEGIN();
@@ -442,7 +481,9 @@ void File_Ac4::ac4_toc()
 
     substream_index_table();
 
-    Skip_S1(BS->Remain()%8,                                     "byte_align");
+    size_t byte_align=BS->Remain()%8;
+    if (byte_align)
+        Skip_S1(byte_align,                                     "byte_align");
 
     Element_End0();
 }
@@ -1153,7 +1194,8 @@ void File_Ac4::ac4_presentation_substream_info()
         substream_index=(int8u)substream_index32;
     }
 
-    Presentations.back().b_alternative=b_alternative;
+    Presentations.back().substream_index=substream_index;
+    Presentations.back().b_alternative = b_alternative;
     Presentations.back().b_pres_ndot=b_pres_ndot;
 
     Substream_Type[substream_index]=Type_Ac4_Presentation_Substream;
@@ -1430,12 +1472,8 @@ void File_Ac4::substream_index_table()
                 Get_V4(2, substream_size32,                     "substream_size");
                 substream_size=(int16u)substream_size32<<10;
             }
-            Substream_Size[Pos]=substream_size;
+            Substream_Size.push_back(substream_size);
         }
-    }
-    else
-    {
-        Substream_Size[0]=0; // TODO: get substream size if needed
     }
     Element_End0();
 }
@@ -1503,6 +1541,7 @@ void File_Ac4::ac4_substream(size_t Substream_Index)
     size_t Pos_Before=BS->Remain(), Pos_After;
 
     Element_Begin1("ac4_substream");
+    BS_Begin();
     Get_S4(15, audio_size,                                      "audio_size_value");
     TEST_SB_SKIP(                                               "b_more_bits");
         int32u audio_size32;
@@ -1511,7 +1550,7 @@ void File_Ac4::ac4_substream(size_t Substream_Index)
     TEST_SB_END();
 
     // Skip audio
-    Skip_BS((audio_size*8)-(Pos_Before-BS->Remain()),           "audio_data");
+    Skip_BS(audio_size*8,                                       "audio_data");
 
     metadata(Substream_Index);
 
@@ -1519,6 +1558,7 @@ void File_Ac4::ac4_substream(size_t Substream_Index)
 
     if (Pos_Before-Pos_After<(Substream_Size[Substream_Index]*8))
         Skip_BS((Substream_Size[Substream_Index]*8)-(Pos_Before-Pos_After), "remaining_substream_data");
+    BS_End();
     Element_End0();
 }
 
@@ -1580,6 +1620,7 @@ void File_Ac4::ac4_presentation_substream(size_t Substream_Index)
         b_pres_has_lfe=true;
 
     Element_Begin1("ac4_presentation_substream");
+    BS_Begin();
     if (Presentations[Substream_Index].b_alternative)
     {
         TEST_SB_SKIP(                                           "b_name_present");
@@ -1635,7 +1676,9 @@ void File_Ac4::ac4_presentation_substream(size_t Substream_Index)
             Get_V4(2, add_data_bytes32,                         "add_data_bytes32");
             add_data_bytes+=(int8u)add_data_bytes32;
         }
-        Skip_S1(BS->Remain()%8,                                 "byte_align");
+        size_t byte_align=BS->Remain()%8;
+        if (byte_align)
+            Skip_S1(byte_align,                                 "byte_align");
         Skip_BS(add_data_bytes*8,                               "add_data");
     TEST_SB_END();
 
@@ -1686,7 +1729,10 @@ void File_Ac4::ac4_presentation_substream(size_t Substream_Index)
 
     custom_dmx_data(pres_ch_mode, pres_ch_mode_core, b_pres_4_back_channels_present, pres_top_channel_pairs, b_pres_has_lfe);
     loud_corr(pres_ch_mode, pres_ch_mode_core, false/* TODO: b_objects? */);
-    Skip_S1(BS->Remain()%8,                                     "byte_align");
+    size_t byte_align=BS->Remain()%8;
+    if (byte_align)
+        Skip_S1(byte_align,                                     "byte_align");
+    BS_End();
     Element_End0();
 }
 //---------------------------------------------------------------------------
@@ -1695,6 +1741,61 @@ void File_Ac4::metadata(size_t Substream_Index)
     Element_Begin1("metadata");
     basic_metadata(Substream_Infos[Substream_Index].Channel_Mode, Substream_Infos[Substream_Index].Sus_Ver);
     extended_metadata(Substream_Infos[Substream_Index].Channel_Mode, Substream_Infos[Substream_Index].Sus_Ver);
+    int8u tools_metadata_size;
+    Get_S1(7, tools_metadata_size, "tools_metadata_size");
+    TEST_SB_SKIP(                                               "b_more_bits");
+        Skip_V4(3,                                              "tools_metadata_size"); //TODO
+    TEST_SB_END();
+
+    Skip_BS(tools_metadata_size, "tools_metadata");
+    TEST_SB_SKIP("b_emdf_payloads_substream");
+        for (;;)
+        {
+            int32u umd_payload_size;
+            int8u umd_payload_id, extSizeBits;
+            bool b_smpoffst;
+            Get_S1 (5, umd_payload_id,                          "umd_payload_id");
+            if (!umd_payload_id)
+                break;
+            //TODO variable_bits
+            TEST_SB_GET(b_smpoffst, "b_smpoffst");
+                Skip_V4(11, "smpoffst");
+            TEST_SB_END();
+            TEST_SB_SKIP("b_duration");
+                Skip_V4(11, "duration");
+            TEST_SB_END();
+            TEST_SB_SKIP("b_groupid");
+                Skip_V4(2, "groupid");
+            TEST_SB_END();
+            TEST_SB_SKIP("b_codecdata");
+                Skip_V4(8, "b_codecdata");
+            TEST_SB_END();
+            TEST_SB_SKIP("b_discard_unknown_payload");
+                bool b_payload_frame_aligned;
+                if (!b_smpoffst)
+                {
+                    TEST_SB_GET(b_payload_frame_aligned, "b_payload_frame_aligned");
+                        Skip_SB("b_create_duplicate");
+                        Skip_SB("b_remove_duplicate");
+                    TEST_SB_END();
+                }
+                if (b_smpoffst || b_payload_frame_aligned)
+                {
+                    Skip_S1(5, "priority");
+                    Skip_S1(2, "proc_allowed");
+                }
+            TEST_SB_END();
+            Get_V4 (8, umd_payload_size,                           "umd_payload_size");
+            umd_payload_size++;
+
+            switch (umd_payload_id)
+            {
+                default:
+                    if (umd_payload_size)
+                        Skip_BS(umd_payload_size,                            "(Unknown)");
+            }
+        }
+    TEST_SB_END();
     Element_End0();
 }
 
