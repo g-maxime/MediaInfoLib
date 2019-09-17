@@ -28,22 +28,6 @@ public :
     int64u Frame_Count_Valid;
     bool   MustParse_dac4;
 
-
-
-    struct drc_decoder_config_infos
-    {
-        bool Compression_Curve_Flag;
-        int8u Gains_Config;
-        drc_decoder_config_infos() : Compression_Curve_Flag(false), Gains_Config(0) {};
-    };
-
-/*  struct ac4_substream_group_infos
-    {
-        bool Hsf_Ext;
-        bool Channel_Coded;
-        std::set<int8u> Substreams;
-    }; */
-
     struct loudness_info
     {
         int8u dialnorm_bits;
@@ -128,10 +112,10 @@ private :
     void tool_t2_to_f_s();
     void loud_corr(int8u pres_ch_mode, int8u pres_ch_mode_core, bool b_objects);
     void drc_frame(bool b_iframe);
-    void drc_config(int8u& drc_decoder_nr_mode, std::map<int8u, int8u>& decoder_ids, std::map<int8u, drc_decoder_config_infos>& decoder_infos);
-    void drc_data(int8u drc_decoder_nr_modes, std::map<int8u, int8u> decoder_ids, std::map<int8u, drc_decoder_config_infos> decoder_infos);
-    void drc_gains(int8u drc_decoder_mode_id);
-    void drc_decoder_mode_config(int8u Index, std::map<int8u, int8u>& decoder_ids, std::map<int8u, drc_decoder_config_infos>& decoder_infos);
+    void drc_config();
+    void drc_data();
+    void drc_gains(int8u Index);
+    void drc_decoder_mode_config(int8u Index);
     void drc_compression_curve();
 
     void further_loudness_info(loudness_info& LoudnessInfo, bool sus_ver, bool b_presentation_ldn);
@@ -141,6 +125,8 @@ private :
     //Parsing
     void Get_V4 (int8u  Bits, int32u  &Info, const char* Name);
     void Skip_V4(int8u  Bits, const char* Name);
+    void Get_V4(int8u Bits1, int8u Bits2, int8u Flag_Value, int32u &Info, const char* Name);
+    void Skip_V4(int8u Bits1, int8u Bits2, int8u Flag_Value, const char* Name);
     void Get_V4(int8u Bits1, int8u Bits2, int8u Bits3, int8u Bits4, int32u  &Info, const char* Name);
     void Get_V4(int8u Bits1, int8u Bits2, int8u Bits3, int8u Bits4, int8u Bits5, int8u Bits6, int32u  &Info, const char* Name);
     void Get_VB (int8u  &Info, const char* Name);
@@ -203,6 +189,14 @@ private :
         {}
     };
     vector<group> Groups;
+    struct drc_decoder_config
+    {
+        int8u drc_decoder_mode_id;
+        bool drc_compression_curve_flag;
+        int8u drc_gains_config;
+    };
+    vector<drc_decoder_config>Decoders;
+
 
     //Utils
     bool CRC_Compute(size_t Size);
@@ -233,7 +227,6 @@ private :
     vector<size_t> IFrames;
     std::vector<size_t> Substream_Size;
     std::map<int8u, substream_type_t> Substream_Type;
-
     std::map<int8u, ac4_substream_infos> Substream_Infos;
     //std::map<int8u, ac4_substream_group_infos> Substream_Group_Infos;
 };
