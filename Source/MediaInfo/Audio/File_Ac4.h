@@ -39,6 +39,15 @@ public :
         {}
     };
 
+    struct drc_info
+    {
+        int8u drc_eac3_profile;
+
+        drc_info() :
+            drc_eac3_profile((int8u)-1)
+        {}
+    };
+
     struct ac4_substream_infos
     {
         bool Sus_Ver;
@@ -111,8 +120,8 @@ private :
     void tool_t2_to_f_s_b();
     void tool_t2_to_f_s();
     void loud_corr(int8u pres_ch_mode, int8u pres_ch_mode_core, bool b_objects);
-    void drc_frame(bool b_iframe);
-    void drc_config();
+    void drc_frame(drc_info& DrcInfo, bool b_iframe);
+    void drc_config(drc_info& DrcInfo);
     void drc_data();
     void drc_gains(int8u Index);
     void drc_decoder_mode_config(int8u Index);
@@ -152,6 +161,7 @@ private :
         int8u b_multi_pid_PresentAndValue;
         vector<size_t> substream_group_info_specifiers;
         loudness_info LoudnessInfo;
+        drc_info DrcInfo;
 
         presentation() :
             presentation_config((int8u)-1)
