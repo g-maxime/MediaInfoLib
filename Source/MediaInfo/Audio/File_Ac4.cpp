@@ -565,18 +565,15 @@ void File_Ac4::raw_ac4_frame()
                 break;
             case Type_Ac4_Hsf_Ext_Substream:
                 Skip_XX(Substream_Size[substream_index],        "ac4_hsf_ext_substream");
-                // TODO: ac4_hsf_ext_substream(); (skip)
                 break;
             case Type_Emdf_Payloads_Substream:
                 Skip_XX(Substream_Size[substream_index],        "emdf_payloads_substream");
-                // TODO: emdf_payloads_substream(); (skip)
                 break;
             case Type_Ac4_Presentation_Substream:
                   Element_Offset=Element_Size; // Previously parsed, skip
                   break;
             case Type_Oamd_Substream:
                 Skip_XX(Substream_Size[substream_index],        "oamd_substream");
-                // TODO: oamd_substream(); (skip)
                 break;
             default:
                 Skip_XX(Substream_Size[substream_index],        "substream_data");
@@ -604,6 +601,7 @@ void File_Ac4::ac4_toc()
 {
     Presentations.clear();
     Groups.clear();
+    Decoders.clear(); // TODO: fix scope
     max_group_index=0;
 
     int16u sequence_counter, n_presentations;
@@ -971,23 +969,7 @@ void File_Ac4::ac4_substream_info()
         }
 
         TEST_SB_SKIP(                                           "b_bitrate_info");
-            //TODO: move to a function
-            int8u bitrate_indicator, Count=3;
-            Peek_S1(Count, bitrate_indicator);
-            if (bitrate_indicator==4)
-            {
-                Count=5;
-                Peek_S1(Count, bitrate_indicator);
-            }
-            BS->Skip(Count);
-
-            #if MEDIAINFO_TRACE
-            if (Trace_Activated)
-            {
-                Param("bitrate_indicator", bitrate_indicator, Count);
-                Param_Info(__T("(")+Ztring::ToZtring(Count)+__T(" bits)"));
-            }
-            #endif
+            Skip_V4(3, 5, 4,                                    "bitrate_indicator");
         TEST_SB_END();
         if (channel_mode >=122 && channel_mode <= 125)
             Skip_SB(                                            "add_ch_base");
@@ -1135,24 +1117,8 @@ void File_Ac4::ac4_substream_info_chan(bool sus_ver)
     }
 
     TEST_SB_SKIP(                                               "b_bitrate_info");
-            //TODO: move to a function
-            int8u bitrate_indicator, Count=3;
-            Peek_S1(Count, bitrate_indicator);
-            if (bitrate_indicator==4)
-            {
-                Count=5;
-                Peek_S1(Count, bitrate_indicator);
-            }
-            BS->Skip(Count);
-
-            #if MEDIAINFO_TRACE
-            if (Trace_Activated)
-            {
-                Param("bitrate_indicator", bitrate_indicator, Count);
-                Param_Info(__T("(")+Ztring::ToZtring(Count)+__T(" bits)"));
-            }
-            #endif
-    TESTELSE_SB_END();
+        Skip_V4(3, 5, 4,                                        "bitrate_indicator");
+    TEST_SB_END();
 
     if (channel_mode>=122 && channel_mode<=125)
         Skip_SB(                                                "add_ch_base");
@@ -1234,23 +1200,7 @@ void File_Ac4::ac4_substream_info_ajoc(bool b_substreams_present)
     }
 
     TEST_SB_SKIP(                                               "b_bitrate_info");
-        //TODO: move to a function
-        int8u bitrate_indicator, Count=3;
-        Peek_S1(Count, bitrate_indicator);
-        if (bitrate_indicator==4)
-        {
-            Count=5;
-            Peek_S1(Count, bitrate_indicator);
-        }
-        BS->Skip(Count);
-
-        #if MEDIAINFO_TRACE
-        if (Trace_Activated)
-        {
-            Param("bitrate_indicator", bitrate_indicator, Count);
-            Param_Info(__T("(")+Ztring::ToZtring(Count)+__T(" bits)"));
-        }
-        #endif
+        Skip_V4(3, 5, 4,                                        "bitrate_indicator");
     TEST_SB_END();
 
     for (int8u Pos=0; Pos<frame_rate_factor; Pos++)
@@ -1331,23 +1281,7 @@ void File_Ac4::ac4_substream_info_obj(bool b_substreams_present)
     }
 
     TEST_SB_SKIP(                                               "b_bitrate_info");
-        //TODO: move to a function
-        int8u bitrate_indicator, Count=3;
-        Peek_S1(Count, bitrate_indicator);
-        if (bitrate_indicator==4)
-        {
-            Count=5;
-            Peek_S1(Count, bitrate_indicator);
-        }
-        BS->Skip(Count);
-
-        #if MEDIAINFO_TRACE
-        if (Trace_Activated)
-        {
-            Param("bitrate_indicator", bitrate_indicator, Count);
-            Param_Info(__T("(")+Ztring::ToZtring(Count)+__T(" bits)"));
-        }
-        #endif
+        Skip_V4(3, 5, 4,                                        "bitrate_indicator");
     TEST_SB_END();
 
     for (int8u Pos=0; Pos<frame_rate_factor; Pos++)
@@ -1406,9 +1340,9 @@ void File_Ac4::ac4_presentation_substream_info()
 void File_Ac4::presentation_config_ext_info(int8u presentation_config)
 {
     Element_Begin1(                                             "presentation_config_ext_info");
-    int8u n_skip_bytes; // TODO: verify max size
+    int16u n_skip_bytes; // TODO: verify max size
 
-    Get_S1 (5, n_skip_bytes,                                    "n_skip_bytes");
+    Get_S2 (5, n_skip_bytes,                                    "n_skip_bytes");
     TEST_SB_SKIP(                                               "b_more_skip_bytes");
         int32u n_skip_bytes32;
         Get_V4 (2, n_skip_bytes32,                              "n_skip_bytes");
@@ -1774,7 +1708,7 @@ void File_Ac4::ac4_presentation_substream(size_t Substream_Index)
 {
     int8u name_length=32, n_targets, add_data_bytes;
 
-    int8u pres_ch_mode=(int8u)-1, pres_ch_mode_core=(int8u)-1, pres_top_channel_pairs=0, dialnorm_bits;
+    int8u pres_ch_mode=(int8u)-1, pres_ch_mode_core=(int8u)-1, pres_top_channel_pairs=0, dialnorm_bits, n_substreams_in_presentation=0;
     bool b_obj_or_ajoc=false, b_obj_or_ajoc_adaptive=false, b_pres_4_back_channels_present=false, b_pres_has_lfe=false;
 
     for (size_t Pos=0; Pos<Presentations[Substream_Index].substream_group_info_specifiers.size(); Pos++)
@@ -1784,6 +1718,8 @@ void File_Ac4::ac4_presentation_substream(size_t Substream_Index)
         {
             if (Groups[Group_Index].Substreams[Pos2].substream_type==Type_Ac4_Substream)
             {
+                n_substreams_in_presentation++;
+
                 // pres_ch_mode && pres_ch_mode_core
                 if (Groups[Group_Index].Substreams[Pos2].ch_mode!=(int8u)-1) // channel coded
                 {
@@ -1863,7 +1799,7 @@ void File_Ac4::ac4_presentation_substream(size_t Substream_Index)
                 Skip_S1(5,                                      "loud_corr_target");
             TEST_SB_END();
 
-            for (int8u Pos2=0; Pos<1 /* TODO: n_substreams_in_presentation */; Pos++)
+            for (int8u Pos2=0; Pos< n_substreams_in_presentation; Pos++)
             {
                 TEST_SB_SKIP(                                    "b_active");
                     TEST_SB_SKIP(                                "alt_data_set_index");
@@ -1902,8 +1838,7 @@ void File_Ac4::ac4_presentation_substream(size_t Substream_Index)
         drc_metadata_size_value+=(int16u)drc_metadata_size_value32<<5;
     TEST_SB_END();
 
-    //TODO: fix drc_frame(Substream_Info[Substream_Index].Pres_Ndot);
-    Skip_BS(drc_metadata_size_value,                            "drc_metadata");
+    drc_frame(Presentations[Substream_Index].b_pres_ndot);
 
     if (Presentations[Substream_Index].n_substream_groups>1)
     {
@@ -2529,34 +2464,31 @@ void File_Ac4::loud_corr(int8u pres_ch_mode, int8u pres_ch_mode_core, bool b_obj
 //---------------------------------------------------------------------------
 void File_Ac4::drc_frame(bool b_iframe)
 {
-    int8u drc_decoder_nr_modes=0; // TODO: global level ?
-    std::map<int8u, int8u> decoder_ids;
-    std::map<int8u, drc_decoder_config_infos> decoder_infos;
-
     Element_Begin1("drc_frame");
     TEST_SB_SKIP(                                           "b_drc_present");
         if (b_iframe)
-            drc_config(drc_decoder_nr_modes, decoder_ids, decoder_infos);
+            drc_config();
 
-        //drc_data(drc_decoder_nr_modes, decoder_ids, decoder_infos);
+        drc_data();
     TEST_SB_END();
     Element_End0();
 }
 
 //---------------------------------------------------------------------------
-void File_Ac4::drc_config(int8u& drc_decoder_nr_modes, std::map<int8u, int8u>& decoder_ids, std::map<int8u, drc_decoder_config_infos>& decoder_infos)
+void File_Ac4::drc_config()
 {
+    int8u drc_decoder_nr_modes;
     Element_Begin1("drc_config");
         Get_S1(3, drc_decoder_nr_modes,                         "drc_decoder_nr_modes");
         for (int8u Pos=0; Pos<=drc_decoder_nr_modes; Pos++)
-            drc_decoder_mode_config(Pos, decoder_ids, decoder_infos);
+            drc_decoder_mode_config(Pos);
 
         Skip_S1(3,                                              "drc_eac3_profile");
     Element_End0();
 }
 
 //---------------------------------------------------------------------------
-void File_Ac4::drc_data(int8u drc_decoder_nr_modes, std::map<int8u, int8u> decoder_ids, std::map<int8u, drc_decoder_config_infos> decoder_infos)
+void File_Ac4::drc_data()
 {
     bool curve_present=false;
     int16u drc_gainset_size;
@@ -2564,9 +2496,9 @@ void File_Ac4::drc_data(int8u drc_decoder_nr_modes, std::map<int8u, int8u> decod
     size_t Remain_Before, used_bits=0;
 
     Element_Begin1("drc_data");
-    for (int8u Pos=0; Pos<=drc_decoder_nr_modes; Pos++)
+    for (int8u Pos=0; Pos<Decoders.size(); Pos++)
     {
-        if (!decoder_infos[decoder_ids[Pos]].Compression_Curve_Flag)
+        if (!Decoders[Pos].drc_compression_curve_flag)
         {
             Get_S2(6, drc_gainset_size,                         "drc_gainset_size");
             TEST_SB_SKIP(                                       "b_more_bits");
@@ -2579,7 +2511,7 @@ void File_Ac4::drc_data(int8u drc_decoder_nr_modes, std::map<int8u, int8u> decod
             if (drc_version<=1)
             {
                 Remain_Before=BS->Remain();
-                drc_gains(decoder_ids[Pos]);
+                drc_gains(Pos);
                 used_bits=Remain_Before-BS->Remain();
             }
 
@@ -2603,17 +2535,23 @@ void File_Ac4::drc_data(int8u drc_decoder_nr_modes, std::map<int8u, int8u> decod
 }
 
 //---------------------------------------------------------------------------
-void File_Ac4::drc_gains(int8u drc_decoder_mode_id)
+void File_Ac4::drc_gains(int8u Index)
 {
     Element_Begin1("drc_gains");
-    // TODO:
+    Skip_S1(7,                                                  "drc_gain_val");
+    if (Decoders[Index].drc_gains_config>0)
+    {
+        // TODO:
+    }
     Element_End0();
 }
 
 //---------------------------------------------------------------------------
-void File_Ac4::drc_decoder_mode_config(int8u Index, std::map<int8u, int8u>& decoder_ids, std::map<int8u, drc_decoder_config_infos>& decoder_infos)
+void File_Ac4::drc_decoder_mode_config(int8u Index)
 {
-    int8u drc_decoder_mode_id, drc_gains_config;
+    Decoders.resize(Decoders.size()+1);
+
+    int8u drc_decoder_mode_id, drc_gains_config=0;
     bool drc_compression_curve_flag=false;
 
     Element_Begin1("drc_decoder_mode_config");
@@ -2631,7 +2569,6 @@ void File_Ac4::drc_decoder_mode_config(int8u Index, std::map<int8u, int8u>& deco
         TESTELSE_SB_SKIP(                                       "drc_default_profile_flag");
             drc_compression_curve_flag=true;
         TESTELSE_SB_ELSE(                                       "drc_default_profile_flag");
-
             TESTELSE_SB_GET(drc_compression_curve_flag,         "drc_compression_curve_flag[drc_decoder_mode_id[pcount]]");
                 drc_compression_curve();
             TESTELSE_SB_ELSE(                                   "drc_compression_curve_flag[drc_decoder_mode_id[pcount]]");
@@ -2641,9 +2578,9 @@ void File_Ac4::drc_decoder_mode_config(int8u Index, std::map<int8u, int8u>& deco
     TESTELSE_SB_END();
     Element_End0();
 
-    decoder_ids[Index]=drc_decoder_mode_id;
-    decoder_infos[drc_decoder_mode_id].Compression_Curve_Flag=drc_compression_curve_flag;
-    decoder_infos[drc_decoder_mode_id].Gains_Config=drc_gains_config;
+    Decoders.back().drc_decoder_mode_id=drc_decoder_mode_id;
+    Decoders.back().drc_compression_curve_flag=drc_compression_curve_flag;
+    Decoders.back().drc_gains_config=drc_gains_config;
 };
 
 //---------------------------------------------------------------------------
@@ -2664,7 +2601,7 @@ void File_Ac4::drc_compression_curve()
         TEST_SB_END();
     }
 
-    Get_S1(4, drc_gain_max_cut,                                 "drc_gain_max_cut");
+    Get_S1(5, drc_gain_max_cut,                                 "drc_gain_max_cut");
     if (drc_gain_max_cut)
     {
         Skip_S1(6,                                              "drc_lev_max_cut");
@@ -2744,8 +2681,6 @@ void File_Ac4::further_loudness_info(loudness_info& LoudnessInfo, bool sus_ver, 
     {
         TEST_SB_SKIP(                                           "b_prgmbndy");
             bool prgmbndy_bit=false;
-            int8u test;
-            Peek_S1(8, test);
             while(!prgmbndy_bit) // TODO: skip all bits in one time
                 Get_SB(prgmbndy_bit,                            "prgmbndy_bit");
 
@@ -2906,6 +2841,52 @@ void File_Ac4::Skip_V4(int8u  Bits, const char* Name)
                 BS->Skip(Bits);
             while (BS->GetB());
         }
+}
+
+//---------------------------------------------------------------------------
+void File_Ac4::Get_V4(int8u Bits1, int8u Bits2, int8u Flag_Value, int32u &Info, const char* Name)
+{
+    Info = 0;
+    int8u Count=Bits1;
+
+    Peek_S4(Count, Info);
+    if (Info==Flag_Value)
+    {
+        Count=Bits2;
+        Peek_S4(Count, Info);
+    }
+    BS->Skip(Count);
+
+    #if MEDIAINFO_TRACE
+    if (Trace_Activated)
+    {
+        Param(Name, Info, Count);
+        Param_Info(__T("(")+Ztring::ToZtring(Count)+__T(" bits)"));
+    }
+    #endif
+}
+
+//---------------------------------------------------------------------------
+void File_Ac4::Skip_V4(int8u Bits1, int8u Bits2, int8u Flag_Value, const char* Name)
+{
+    int32u Info = 0;
+    int8u Count=Bits1;
+
+    Peek_S4(Count, Info);
+    if (Info==Flag_Value)
+    {
+        Count=Bits2;
+        Peek_S4(Count, Info);
+    }
+    BS->Skip(Count);
+
+    #if MEDIAINFO_TRACE
+    if (Trace_Activated)
+    {
+        Param(Name, Info, Count);
+        Param_Info(__T("(")+Ztring::ToZtring(Count)+__T(" bits)"));
+    }
+    #endif
 }
 
 //---------------------------------------------------------------------------
