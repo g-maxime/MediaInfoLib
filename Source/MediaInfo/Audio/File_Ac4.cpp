@@ -177,6 +177,19 @@ static const sized_array Ac4_presentation_config=
 }
 };
 
+static const sized_array Ac4_drc_eac3_profile=
+{
+6,
+{
+"",
+"Film standard",
+"Film light",
+"Music standard",
+"Music light",
+"Speech",
+}
+};
+
 //---------------------------------------------------------------------------
 void File_Ac4::Streams_Fill()
 {
@@ -243,6 +256,8 @@ void File_Ac4::Streams_Fill()
         }
 
         Fill(Stream_Audio, 0, Ztring(__T("Presentation")+Ztring::ToZtring(p)).To_UTF8().c_str(), Summary);
+        if (Presentation.DrcInfo.drc_eac3_profile!=(int8u)-1)
+            Fill(Stream_Audio, 0, Ztring(__T("Presentation")+Ztring::ToZtring(p)+__T(" drc_eac3_profile")).To_UTF8().c_str(), Value(Ac4_drc_eac3_profile, Presentation.DrcInfo.drc_eac3_profile));
         if (Presentation.LoudnessInfo.dialnorm_bits!=(int8u)-1)
             Fill(Stream_Audio, 0, Ztring(__T("Presentation")+Ztring::ToZtring(p)+__T(" dialnorm")).To_UTF8().c_str(), -0.25*Presentation.LoudnessInfo.dialnorm_bits, 2);
         if (!Language.empty())
@@ -499,6 +514,15 @@ void File_Ac4::Data_Parse()
     }
 
     Substream_Size.clear();
+
+    FILLING_BEGIN();
+        Frame_Count++;
+        if (!Status[IsFilled] && Frame_Count>=Frame_Count_Valid)
+        {
+            Fill();
+            Finish();
+        }
+    FILLING_END();
 }
 
 //---------------------------------------------------------------------------
@@ -507,6 +531,13 @@ void File_Ac4::raw_ac4_frame()
     Element_Begin1("raw_ac4_frame");
     BS_Begin();
     ac4_toc();
+
+    if (Element_Offset==Element_Size)
+    {
+        Element_End0();
+        return; //Not parsing this frame
+    }
+
     size_t byte_align=BS->Remain()%8;
     if (byte_align)
         Skip_S1(byte_align,                                     "byte_align");
@@ -585,25 +616,11 @@ void File_Ac4::raw_ac4_frame()
     }
 
     Element_End0();
-
-    FILLING_BEGIN();
-        Frame_Count++;
-        if (!Status[IsFilled] && Frame_Count>=Frame_Count_Valid)
-        {
-            Fill();
-            Finish();
-        }
-    FILLING_END();
 }
 
 //---------------------------------------------------------------------------
 void File_Ac4::ac4_toc()
 {
-    Presentations.clear();
-    Groups.clear();
-    Decoders.clear(); // TODO: fix scope
-    max_group_index=0;
-
     int16u sequence_counter, n_presentations;
     bool b_iframe_global;
     Element_Begin1("raw_ac4_toc");
@@ -625,8 +642,20 @@ void File_Ac4::ac4_toc()
     Get_SB (   fs_index,                                        "fs_index");
     Get_S1 (4, frame_rate_index,                                "frame_rate_index"); Param_Info1(Ac4_frame_rate[fs_index][frame_rate_index]);
     Get_SB (   b_iframe_global,                                 "b_iframe_global");
-    if (b_iframe_global)
-        IFrames.push_back(Frame_Count); //TODO
+    if (!b_iframe_global)
+    {
+        //We parse only Iframes
+        BS_End();
+        Element_Offset=Element_Size;
+        return;
+    }
+
+    IFrames.push_back(Frame_Count); //TODO
+    Presentations.clear();
+    Groups.clear();
+    Decoders.clear(); // TODO: fix scope
+    max_group_index = 0;
+
     TESTELSE_SB_SKIP(                                           "b_single_presentation");
         n_presentations=1;
     TESTELSE_SB_ELSE(                                           "b_single_presentation");
@@ -1827,7 +1856,7 @@ void File_Ac4::ac4_presentation_substream(size_t Substream_Index)
 
     Get_S1 (7, dialnorm_bits,                                   "dialnorm_bits");
     TEST_SB_SKIP(                                               "b_further_loudness_info");
-        further_loudness_info(Presentations.back().LoudnessInfo, true, true);
+        further_loudness_info(Presentations[Substream_Index].LoudnessInfo, true, true);
     TEST_SB_END();
 
     int16u drc_metadata_size_value;
@@ -1838,7 +1867,7 @@ void File_Ac4::ac4_presentation_substream(size_t Substream_Index)
         drc_metadata_size_value+=(int16u)drc_metadata_size_value32<<5;
     TEST_SB_END();
 
-    drc_frame(Presentations[Substream_Index].b_pres_ndot);
+    drc_frame(Presentations[Substream_Index].DrcInfo, Presentations[Substream_Index].b_pres_ndot);
 
     if (Presentations[Substream_Index].n_substream_groups>1)
     {
@@ -2462,12 +2491,12 @@ void File_Ac4::loud_corr(int8u pres_ch_mode, int8u pres_ch_mode_core, bool b_obj
 }
 
 //---------------------------------------------------------------------------
-void File_Ac4::drc_frame(bool b_iframe)
+void File_Ac4::drc_frame(drc_info& DrcInfo, bool b_iframe)
 {
     Element_Begin1("drc_frame");
     TEST_SB_SKIP(                                           "b_drc_present");
         if (b_iframe)
-            drc_config();
+            drc_config(DrcInfo);
 
         drc_data();
     TEST_SB_END();
@@ -2475,7 +2504,7 @@ void File_Ac4::drc_frame(bool b_iframe)
 }
 
 //---------------------------------------------------------------------------
-void File_Ac4::drc_config()
+void File_Ac4::drc_config(drc_info& DrcInfo)
 {
     int8u drc_decoder_nr_modes;
     Element_Begin1("drc_config");
@@ -2483,7 +2512,7 @@ void File_Ac4::drc_config()
         for (int8u Pos=0; Pos<=drc_decoder_nr_modes; Pos++)
             drc_decoder_mode_config(Pos);
 
-        Skip_S1(3,                                              "drc_eac3_profile");
+        Get_S1 (3, DrcInfo.drc_eac3_profile,                    "drc_eac3_profile");
     Element_End0();
 }
 
