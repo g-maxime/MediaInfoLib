@@ -573,6 +573,44 @@ Ztring MediaInfo_Internal::Inform (stream_t StreamKind, size_t StreamPos, bool I
                 #endif //MEDIAINFO_XML_YES || MEDIAINFO_JSON_YES
 
                     Nom=Get((stream_t)StreamKind, StreamPos, Champ_Pos, Info_Name); //Texte n'existe pas
+
+                //Subs
+                if (Champ_Pos)
+                {
+                    Ztring Code=Get((stream_t)StreamKind, StreamPos, Champ_Pos, Info_Name); //Raw name
+                    for (size_t i=0; ; i++)
+                    {
+                        if (i>=Code.size())
+                            break;
+                        size_t Space=Code.find(__T(' '), i);
+                        if (Space!=string::npos)
+                        {
+                            Ztring Previous=Get((stream_t)StreamKind, StreamPos, Champ_Pos-1, Info_Name);
+                            Ztring ToCheck=Code.substr(0, Space);
+                            if (Previous.size()>=ToCheck.size())
+                            {
+                                bool IsNotPrevious=false;
+                                for (size_t j=0; j<ToCheck.size(); j++)
+                                    if (ToCheck[j]!=Previous[j])
+                                    {
+                                        IsNotPrevious=true;
+                                        break;
+                                    }
+                                if (!IsNotPrevious && (Previous.size()==ToCheck.size() || Previous[ToCheck.size()]==__T(' ')))
+                                {
+                                    Code.erase(0, ToCheck.size());
+                                    Nom=Code;
+
+                                    if (Nom == __T("SubstreamGroups"))
+                                    {
+
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 #if defined(MEDIAINFO_TEXT_YES) && (defined(MEDIAINFO_HTML_YES) || defined(MEDIAINFO_XML_YES) || defined(MEDIAINFO_JSON_YES) || defined(MEDIAINFO_CSV_YES))
                 if (Text)
                 #endif //defined(MEDIAINFO_TEXT_YES) && (defined(MEDIAINFO_HTML_YES) || defined(MEDIAINFO_XML_YES) || defined(MEDIAINFO_JSON_YES) || defined(MEDIAINFO_CSV_YES))
