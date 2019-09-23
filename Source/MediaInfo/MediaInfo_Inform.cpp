@@ -575,6 +575,7 @@ Ztring MediaInfo_Internal::Inform (stream_t StreamKind, size_t StreamPos, bool I
                     Nom=Get((stream_t)StreamKind, StreamPos, Champ_Pos, Info_Name); //Texte n'existe pas
 
                 //Subs
+                /*
                 if (Champ_Pos)
                 {
                     Ztring Code=Get((stream_t)StreamKind, StreamPos, Champ_Pos, Info_Name); //Raw name
@@ -610,6 +611,7 @@ Ztring MediaInfo_Internal::Inform (stream_t StreamKind, size_t StreamPos, bool I
                         }
                     }
                 }
+                */
 
                 #if defined(MEDIAINFO_TEXT_YES) && (defined(MEDIAINFO_HTML_YES) || defined(MEDIAINFO_XML_YES) || defined(MEDIAINFO_JSON_YES) || defined(MEDIAINFO_CSV_YES))
                 if (Text)

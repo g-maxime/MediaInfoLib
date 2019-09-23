@@ -209,6 +209,25 @@ void File__Analyze::Streams_Finish_Global()
     Streams_Finish_InterStreams();
     Streams_Finish_StreamOnly();
 
+    //Sub-elements
+    for (size_t StreamKind=Stream_General; StreamKind<Stream_Max; StreamKind++)
+        for (size_t StreamPos=0; StreamPos<(*Stream_More)[StreamKind].size(); StreamPos++)
+            for (size_t Pos=0; Pos<(*Stream_More)[StreamKind][StreamPos].size(); Pos++)
+                if ((*Stream_More)[StreamKind][StreamPos][Pos].size()>Info_Name_Text)
+                {
+                    Ztring& Name=(*Stream_More)[StreamKind][StreamPos][Pos][Info_Name_Text];
+                    size_t Spaces=0;
+                    for (;;)
+                    {
+                        size_t i=Name.find(__T(' '), Spaces);
+                        if (i==(size_t)-1)
+                            break;
+                        Name.erase(Spaces, i-Spaces);
+                        Spaces++;
+                    }
+                }
+
+
     if (!IsSub && !Config->File_IsReferenced_Get() && MediaInfoLib::Config.ReadByHuman_Get())
         Streams_Finish_HumanReadable();
 }

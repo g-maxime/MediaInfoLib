@@ -264,8 +264,11 @@ void File_Ac4::Streams_Fill()
             Fill(Stream_Audio, 0, Ztring(__T("Presentation")+Ztring::ToZtring(p)+__T(" Language")).To_UTF8().c_str(), Language);
         if (Presentation.b_multi_pid_PresentAndValue!=(int8u)-1)
             Fill(Stream_Audio, 0, Ztring(__T("Presentation")+Ztring::ToZtring(p)+__T(" MultipleStream")).To_UTF8().c_str(), Presentation.b_multi_pid_PresentAndValue?"Yes":"No");
-        if (Presentation.LoudnessInfo.truepk!=(int16u)-1)
-            Fill(Stream_Audio, 0, Ztring(__T("Presentation")+Ztring::ToZtring(p)+__T(" TruePeak")).To_UTF8().c_str(), (Presentation.LoudnessInfo.truepk-1024)/10.0, 1);
+        if (Presentation.LoudnessInfo.truepk!=(int16u)-2)
+        {
+            Fill(Stream_Audio, 0, Ztring(__T("Presentation")+Ztring::ToZtring(p)+__T(" Test")).To_UTF8().c_str(), (Presentation.LoudnessInfo.truepk-1024)/10.0, 1);
+            Fill(Stream_Audio, 0, Ztring(__T("Presentation")+Ztring::ToZtring(p)+__T(" Test TruePeak")).To_UTF8().c_str(), (Presentation.LoudnessInfo.truepk-1024)/10.0, 1);
+        }
 
         for (size_t s=0; s<Presentation.substream_group_info_specifiers.size(); s++)
         {
