@@ -116,19 +116,17 @@ File_Ac4::~File_Ac4()
 
 struct sized_array
 {
-    const size_t Size;
     const char* Values[];
 };
-const char* Value(const sized_array& Array, size_t Pos)
+string Value(const sized_array& Array, size_t Pos)
 {
-    if (Pos>=Array.Size)
-        return "";
-    return Array.Values[Pos];
+    if (Pos>=(size_t)Array.Values[0])
+        return string();
+    return Array.Values[++Pos];
 }
 static const sized_array Ac4_content_classifier=
 {
-8,
-{
+(const char*)8,
 "CM",
 "ME",
 "VI",
@@ -137,13 +135,11 @@ static const sized_array Ac4_content_classifier=
 "C",
 "E",
 "VO",
-}
 };
 
 static const sized_array Ac4_ch_mode=
 {
-16,
-{
+(const char*)16,
 "M",
 "L, R",
 "3.0",
@@ -160,13 +156,11 @@ static const sized_array Ac4_ch_mode=
 "9.0.4",
 "9.1.4",
 "22.2",
-}
 };
 
 static const sized_array Ac4_presentation_config=
 {
-7,
-{
+(const char*)7,
 "Music and Effects + Dialogue",
 "Main + Dialogue Enhancement",
 "Main + Associate",
@@ -174,20 +168,17 @@ static const sized_array Ac4_presentation_config=
 "Main + Dialogue Enhancement + Associate",
 "Arbitrary Substream Groups",
 "EMDF Only",
-}
 };
 
 static const sized_array Ac4_drc_eac3_profile=
 {
-6,
-{
+(const char*)6,
 "",
 "Film standard",
 "Film light",
 "Music standard",
 "Music light",
 "Speech",
-}
 };
 
 //---------------------------------------------------------------------------
