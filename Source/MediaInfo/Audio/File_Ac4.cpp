@@ -114,15 +114,13 @@ File_Ac4::~File_Ac4()
 // Streams management
 //***************************************************************************
 
-struct sized_array
+typedef const char* sized_array[];
+
+string Value(const sized_array Array, size_t Pos)
 {
-    const char* Values[];
-};
-string Value(const sized_array& Array, size_t Pos)
-{
-    if (Pos>=(size_t)Array.Values[0])
+    if (Pos>=(size_t)Array[0])
         return string();
-    return Array.Values[++Pos];
+    return Array[++Pos];
 }
 static const sized_array Ac4_content_classifier=
 {
