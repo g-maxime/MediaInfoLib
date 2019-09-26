@@ -654,7 +654,7 @@ Ztring MediaInfo_Internal::Inform (stream_t StreamKind, size_t StreamPos, bool I
                 #if defined(MEDIAINFO_HTML_YES)
                 if (HTML)
                 {
-                    Retour+=__T("  <tr>\n    <td><i>");
+                    Retour+=__T("  <tr>\n    <td style=\"white-space: pre;\"><i>");
                     Retour+=Nom;
                     Retour+=__T(" :</i></td>\n    <td colspan=\"3\">");
                     Retour+=Valeur;
