@@ -2114,13 +2114,22 @@ void File_Ac4::metadata(size_t Substream_Index)
     Element_Begin1("metadata");
     basic_metadata(AudioSubstreams[Substream_Index].LoudnessInfo, AudioSubstreams[Substream_Index].Preprocessing, AudioSubstreams[Substream_Index].Channel_Mode, AudioSubstreams[Substream_Index].Sus_Ver);
     extended_metadata(AudioSubstreams[Substream_Index].Channel_Mode, AudioSubstreams[Substream_Index].Sus_Ver);
+
+    // TODO:
+    // if (b_alternative && !b_ajoc)
+    //     oamd_dyndata_single(n_objs, num_obj_info_blocks, b_iframe, b_alternative, obj_type[n_objs], b_lfe[n_objs]);
+
     int8u tools_metadata_size;
-    Get_S1(7, tools_metadata_size, "tools_metadata_size");
+    Get_S1(7, tools_metadata_size,                              "tools_metadata_size");
     TEST_SB_SKIP(                                               "b_more_bits");
         Skip_V4(3,                                              "tools_metadata_size"); //TODO
     TEST_SB_END();
 
-    Skip_BS(tools_metadata_size, "tools_metadata");
+    // TODO:
+    // if (!sus_ver)
+    //    drc_frame(b_iframe);
+    dialog_enhancement(AudioSubstreams[Substream_Index].DeInfo, AudioSubstreams[Substream_Index].Channel_Mode, true /* TODO: b_iframe */);
+
     TEST_SB_SKIP("b_emdf_payloads_substream");
         for (;;)
         {
@@ -2364,6 +2373,103 @@ void File_Ac4::extended_metadata(int16u channel_mode, bool sus_ver)
     TEST_SB_SKIP(                                               "b_event_probability");
         Skip_S1(4,                                              "event_probability");
     TEST_SB_END();
+    Element_End0();
+}
+
+//---------------------------------------------------------------------------
+void File_Ac4::dialog_enhancement(de_info& Info, int16u channel_mode, bool b_iframe)
+{
+    bool b_de_config_flag=b_iframe;
+    int8u ch_mode=Channel_Mode_to_Ch_Mode(channel_mode);
+
+    Element_Begin1("dialog_enhancement");
+    TEST_SB_SKIP(                                               "b_de_data_present");
+        if (!b_iframe)
+            Get_SB(b_de_config_flag,                             "b_de_config_flag");
+
+        if (b_de_config_flag)
+            dialog_enhancement_config(Info);
+
+        dialog_enhancement_data(Info, b_iframe, 0);
+        if (ch_mode==13 || ch_mode==14)
+        {
+            TEST_SB_SKIP("b_de_simulcast");
+                dialog_enhancement_data(Info, b_iframe, 1);
+            TEST_SB_END();
+        }
+    TEST_SB_END();
+    Element_End0();
+}
+
+//---------------------------------------------------------------------------
+void File_Ac4::dialog_enhancement_config(de_info& Info)
+{
+    int8u de_method, de_max_gain, de_channel_config;
+    Element_Begin1("de_config");
+    Get_S1(2, de_method,                                        "de_method");
+    Get_S1(2, de_max_gain,                                      "de_max_gain");
+    Get_S1(3, de_channel_config,                                "de_channel_config");
+    Element_End0();
+
+    Info.Config.de_method=de_method;
+    Info.Config.de_max_gain=de_max_gain;
+    Info.Config.de_channel_config=de_channel_config;
+}
+
+//---------------------------------------------------------------------------
+void File_Ac4::dialog_enhancement_data(de_info& Info, bool b_iframe, bool b_de_simulcast)
+{
+    bool de_keep_pos_flag=false, de_keep_data_flag=false, de_ms_proc_flag=false;
+
+    int8u de_nr_channels=0;
+    switch (Info.Config.de_channel_config)
+    {
+        case 0b1:
+        case 0b10:
+        case 0b100:
+            de_nr_channels=1; break;
+        case 0b11:
+        case 0b101:
+        case 0b110:
+            de_nr_channels=2; break;
+        case 0b111:
+            de_nr_channels=3; break;
+    }
+
+    Element_Begin1("de_data");
+    if (de_nr_channels>0)
+    {
+        if (de_nr_channels>1 && (Info.Config.de_method==1 || Info.Config.de_method==3) && !b_de_simulcast)
+        {
+            if (!b_iframe)
+                Get_SB(de_keep_pos_flag,                        "de_keep_pos_flag");
+
+            if (!de_keep_pos_flag)
+            {
+                Skip_S1(5,                                      "de_mix_coef1_idx");
+                if (de_nr_channels==3)
+                    Skip_S1(5,                                  "de_mix_coef2_idx");
+            }
+        }
+
+        if (!b_iframe)
+            Get_SB(de_keep_data_flag,                           "de_keep_data_flag");
+
+        if (!de_keep_data_flag)
+        {
+
+            if (de_nr_channels==2 && (Info.Config.de_method==0 || Info.Config.de_method==2))
+                Skip_SB(                                        "de_ms_proc_flag");
+
+            //for (int8u ch=0; ch<de_nr_channels-de_ms_proc_flag; ch++)
+            //{
+            //TODO:
+            //}
+
+            if (Info.Config.de_method>=2)
+                Skip_S1(5,                                      "de_signal_contribution");
+        }
+    }
     Element_End0();
 }
 
