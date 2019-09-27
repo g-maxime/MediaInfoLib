@@ -24,6 +24,7 @@
 //---------------------------------------------------------------------------
 #include "MediaInfo/Audio/File_Ac4.h"
 #include "MediaInfo/MediaInfo_Config_MediaInfo.h"
+#include "cfloat"
 
 using namespace ZenLib;
 using namespace std;
@@ -114,15 +115,26 @@ File_Ac4::~File_Ac4()
 // Streams management
 //***************************************************************************
 
-typedef const char* sized_array[];
-
-string Value(const sized_array Array, size_t Pos)
+typedef const float sized_array_float[];
+string Value(const sized_array_float Array, size_t Pos, size_t AfterComma=3)
 {
-    if (Pos>=(size_t)Array[0])
-        return string();
-    return Array[++Pos];
+    if (Pos++>=(size_t)Array[0] || !Array[Pos])
+        return "Index "+Ztring::ToZtring(Pos).To_UTF8();
+    if (Array[Pos]==-FLT_MAX)
+        return "-inf";
+    if (Array[Pos]==FLT_MAX)
+        return "inf";
+    return Ztring(Ztring::ToZtring(Array[Pos], AfterComma)).To_UTF8();
 }
-static const sized_array Ac4_content_classifier=
+typedef const char* sized_array_string[];
+string Value(const sized_array_string Array, size_t Pos)
+{
+    if (Pos++>=(size_t)Array[0] || !Array[Pos])
+        return Ztring::ToZtring(Pos).To_UTF8();
+    return Array[Pos];
+}
+
+static const sized_array_string Ac4_content_classifier=
 {
 (const char*)8,
 "CM",
@@ -135,7 +147,7 @@ static const sized_array Ac4_content_classifier=
 "VO",
 };
 
-static const sized_array Ac4_ch_mode=
+static const sized_array_string Ac4_ch_mode=
 {
 (const char*)16,
 "M",
@@ -156,7 +168,7 @@ static const sized_array Ac4_ch_mode=
 "22.2",
 };
 
-static const sized_array Ac4_presentation_config=
+static const sized_array_string Ac4_presentation_config=
 {
 (const char*)7,
 "Music and Effects + Dialogue",
@@ -168,16 +180,84 @@ static const sized_array Ac4_presentation_config=
 "EMDF Only",
 };
 
-static const sized_array Ac4_drc_eac3_profile=
+static const sized_array_string Ac4_drc_eac3_profile=
 {
 (const char*)6,
-"",
+"None",
 "Film standard",
 "Film light",
 "Music standard",
 "Music light",
 "Speech",
 };
+
+static const sized_array_string Ac4_loud_prac_type=
+{
+(const char*)16,
+NULL,
+"ATSC A/85",
+"EBU R128",
+"ARIB TR-B32",
+"FreeTV OP-59",
+NULL,
+NULL,
+NULL,
+NULL,
+NULL,
+NULL,
+NULL,
+NULL,
+NULL,
+"Manual",
+"Consumer leveller",
+};
+
+static const sized_array_string Ac4_lra_prac_type=
+{
+(const char*)2,
+"EBU Tech 3342 v1",
+"EBU Tech 3342 v2",
+};
+
+static const sized_array_string Ac4_drc_decoder_mode_id=
+{
+(const char*)4,
+"HomeTheaterAvr",
+"FlatPanelTv",
+"PortableSpeakers",
+"PortableHeadphones",
+};
+
+static const sized_array_float Ac4_loro_centre_mixgain=
+{
+8,
+3.0,
+1.5,
+0.0,
+-1.5,
+-3.0,
+-4.5,
+-6.0,
+-FLT_MAX,
+};
+
+static const sized_array_string Ac4_preferred_dmx_method=
+{
+(const char*)4,
+"",
+"LoRo",
+"LtRt",
+"Pro Logic II",
+};
+
+static const sized_array_string Ac4_phase90_info_mc=
+{
+(const char*)3,
+"",
+"Undergone",
+"Not undergone",
+};
+
 
 //---------------------------------------------------------------------------
 void File_Ac4::Streams_Fill()
@@ -206,22 +286,22 @@ void File_Ac4::Streams_Fill()
     Fill(Stream_Audio, 0, Audio_FrameRate, Ac4_frame_rate[fs_index][frame_rate_index]);
     if (IFrames_Value)
         Fill(Stream_Audio, 0, "IFrameInterval", IFrames_IsVariable?Ztring(__T("Variable")):(Ztring::ToZtring(IFrames_Value)+__T(" frames")));
-    Fill(Stream_Audio, 0, "NumberOfOresentations", Presentations.size());
-    Fill(Stream_Audio, 0, "NumberOfSubstreams", Substream_Infos.size());
+    Fill(Stream_Audio, 0, "NumberOfPresentations", Presentations.size());
+    Fill(Stream_Audio, 0, "NumberOfSubstreams", AudioSubstreams.size());
 
     for (size_t p=0; p<Presentations.size(); p++)
     {
-        const presentation& Presentation=Presentations[p];
+        const presentation& Presentation_Current=Presentations[p];
         string Language;
         string Text;
-        for (size_t g=0; g<Presentation.substream_group_info_specifiers.size(); g++)
+        for (size_t g=0; g<Presentation_Current.substream_group_info_specifiers.size(); g++)
         {
-            const group& Group=Groups[Presentation.substream_group_info_specifiers[g]];
-            if (!Group.language_tag_bytes.empty() && (Group.content_classifier==0 || Group.content_classifier==1 || Group.content_classifier==4))
+            const group& Group=Groups[Presentation_Current.substream_group_info_specifiers[g]];
+            if (!Group.ContentInfo.language_tag_bytes.empty() && (Group.ContentInfo.content_classifier==0 || Group.ContentInfo.content_classifier==1 || Group.ContentInfo.content_classifier==4))
             {
                 if (!Language.empty())
                     Language+=" / ";
-                Language+=Group.language_tag_bytes;
+                Language+=Group.ContentInfo.language_tag_bytes;
             }
             for (size_t s=0; s<Group.Substreams.size(); s++)
             {
@@ -234,9 +314,11 @@ void File_Ac4::Streams_Fill()
                 }
             }
         }
+
         string Summary=Text;
-        Summary+=' ';
-        Summary+=Presentation.presentation_config==(int8u)-1?"Main":Value(Ac4_presentation_config, Presentation.presentation_config);
+        if (!Summary.empty())
+            Summary+=' ';
+        Summary+=Presentation_Current.presentation_config==(int8u)-1?"Main":Value(Ac4_presentation_config, Presentation_Current.presentation_config);
         if (!Language.empty())
         {
             Summary+=" (";
@@ -244,24 +326,83 @@ void File_Ac4::Streams_Fill()
             Summary+=')';
         }
 
-        Fill(Stream_Audio, 0, Ztring(__T("Presentation")+Ztring::ToZtring(p)).To_UTF8().c_str(), Summary);
-        if (Presentation.DrcInfo.drc_eac3_profile!=(int8u)-1)
-            Fill(Stream_Audio, 0, Ztring(__T("Presentation")+Ztring::ToZtring(p)+__T(" drc_eac3_profile")).To_UTF8().c_str(), Value(Ac4_drc_eac3_profile, Presentation.DrcInfo.drc_eac3_profile));
-        if (Presentation.LoudnessInfo.dialnorm_bits!=(int8u)-1)
-            Fill(Stream_Audio, 0, Ztring(__T("Presentation")+Ztring::ToZtring(p)+__T(" dialnorm")).To_UTF8().c_str(), -0.25*Presentation.LoudnessInfo.dialnorm_bits, 2);
+        string P=Ztring(__T("Presentation")+Ztring::ToZtring(p)).To_UTF8();
+        Fill(Stream_Audio, 0, P.c_str(), Summary);
+        if (Presentation_Current.LoudnessInfo.dialnorm_bits!=(int8u)-1) //TODO: not LoudnessInfo
+            Fill(Stream_Audio, 0, (P+" DialogueNormalization").c_str(), -0.25*Presentation_Current.LoudnessInfo.dialnorm_bits, 2);
         if (!Language.empty())
-            Fill(Stream_Audio, 0, Ztring(__T("Presentation")+Ztring::ToZtring(p)+__T(" Language")).To_UTF8().c_str(), Language);
-        if (Presentation.b_multi_pid_PresentAndValue!=(int8u)-1)
-            Fill(Stream_Audio, 0, Ztring(__T("Presentation")+Ztring::ToZtring(p)+__T(" MultipleStream")).To_UTF8().c_str(), Presentation.b_multi_pid_PresentAndValue?"Yes":"No");
-        if (Presentation.LoudnessInfo.truepk!=(int16u)-2)
+            Fill(Stream_Audio, 0, (P+" Language").c_str(), Language);
+        if (Presentation_Current.b_multi_pid_PresentAndValue!=(int8u)-1)
+            Fill(Stream_Audio, 0, (P+" MultipleStream").c_str(), Presentation_Current.b_multi_pid_PresentAndValue?"Yes":"No");
         {
-            Fill(Stream_Audio, 0, Ztring(__T("Presentation")+Ztring::ToZtring(p)+__T(" Test")).To_UTF8().c_str(), (Presentation.LoudnessInfo.truepk-1024)/10.0, 1);
-            Fill(Stream_Audio, 0, Ztring(__T("Presentation")+Ztring::ToZtring(p)+__T(" Test TruePeak")).To_UTF8().c_str(), (Presentation.LoudnessInfo.truepk-1024)/10.0, 1);
+            const loudness_info& L=Presentation_Current.LoudnessInfo;
+            if (L.loudspchgat!=(int16u)-1 || L.loudrelgat!=(int16u)-1 || (L.loud_prac_type!=(int8u)-1 && L.loud_prac_type) || L.truepk!=(int16u)-1 || L.lra!=(int16u)-1)
+            {
+                Fill(Stream_Audio, 0, (P+" Loudness").c_str(), "Yes");
+                if (L.loudspchgat!=(int16u)-1)
+                    Fill(Stream_Audio, 0, (P+" Loudness IntegratedLoudness_Speech").c_str(), Ztring::ToZtring((L.loudspchgat-1024)/10.0, 1)+__T(" LKFS"));
+                if (L.loudrelgat!=(int16u)-1)
+                    Fill(Stream_Audio, 0, (P+" Loudness IntegratedLoudness_Level").c_str(), Ztring::ToZtring((L.loudrelgat-1024)/10.0, 1)+__T(" LKFS"));
+                if (L.loud_prac_type!=(int8u)-1 && L.loud_prac_type)
+                {
+                    Fill(Stream_Audio, 0, (P+" Loudness RegulationType").c_str(), Value(Ac4_loud_prac_type, L.loud_prac_type));
+                    Fill(Stream_Audio, 0, (P+" Loudness RealtimeLoudnessCorrected").c_str(), L.b_loudcorr_type?"Yes":"No");
+                    Fill(Stream_Audio, 0, (P+" Loudness DialogueCorrected").c_str(), L.loud_dialgate_prac_type!=(int8u)-1?"Yes":"No");
+                }
+                if (L.truepk!=(int16u)-1)
+                    Fill(Stream_Audio, 0, (P+" Loudness TruePeak").c_str(), Ztring::ToZtring((L.truepk-1024)/10.0, 1)+__T(" dBTP"));
+                if (L.max_loudmntry!=(int16u)-1)
+                    Fill(Stream_Audio, 0, (P+" Loudness MaximumMomentaryLoudness").c_str(), Ztring::ToZtring((L.max_loudmntry-1024)/10.0, 1)+__T(" LUFS"));
+                if (L.lra!=(int16u)-1)
+                    Fill(Stream_Audio, 0, (P+" Loudness LoudnessRange").c_str(), Ztring::ToZtring(L.lra/10.0, 1).To_UTF8()+" LU ("+Value(Ac4_lra_prac_type, L.lra_prac_type)+')');
+            }
+        }
+        {
+            const drc_info& D=Presentation_Current.DrcInfo;
+            if (D.drc_eac3_profile!=(int8u)-1 || !D.Decoders.empty())
+            {
+                Fill(Stream_Audio, 0, (P + " DynamicRangeControl").c_str(), "Yes");
+                if (D.drc_eac3_profile!=(int8u)-1)
+                    Fill(Stream_Audio, 0, (P+" DynamicRangeControl Eac3DrcProfile").c_str(), Value(Ac4_drc_eac3_profile, D.drc_eac3_profile));
+                for (size_t i=0; i<D.Decoders.size(); i++)
+                {
+                    drc_decoder_config C=D.Decoders[i];
+                    string V;
+                    if (C.drc_default_profile_flag)
+                        V=Value(Ac4_drc_eac3_profile, D.drc_eac3_profile);
+                    else if (C.drc_compression_curve_flag)
+                        V="Custom";
+                    else
+                        V="DRC gains";
+                    Fill(Stream_Audio, 0, (P+" DynamicRangeControl "+Value(Ac4_drc_decoder_mode_id, C.drc_decoder_mode_id)).c_str(), V);
+                }
+            }
+        }
+        {
+            const dmx& D=Presentation_Current.Dmx;
+            if (D.loro_centre_mixgain!=(int8u)-1 || D.ltrt_centre_mixgain!=(int8u)-1 || D.lfe_mixgain!=(int8u)-1 || D.preferred_dmx_method!=(int8u)-1)
+            {
+                Fill(Stream_Audio, 0, (P+" Downmix").c_str(), "Yes");
+                if (D.loro_centre_mixgain!=(int8u)-1)
+                {
+                    Fill(Stream_Audio, 0, (P+" Downmix LoRoCenterMixGain").c_str(), Value(Ac4_loro_centre_mixgain, D.loro_centre_mixgain, 1)+" dB");
+                    Fill(Stream_Audio, 0, (P+" Downmix LoRoSurroundMixGain").c_str(), Value(Ac4_loro_centre_mixgain, D.loro_surround_mixgain, 1)+" dB");
+                }
+                if (D.ltrt_centre_mixgain!=(int8u)-1)
+                {
+                    Fill(Stream_Audio, 0, (P+" Downmix LtRtCenterMixGain").c_str(), Value(Ac4_loro_centre_mixgain, D.ltrt_centre_mixgain, 1)+" dB");
+                    Fill(Stream_Audio, 0, (P+" Downmix LtRtSurroundMixGain").c_str(), Value(Ac4_loro_centre_mixgain, D.ltrt_surround_mixgain, 1)+" dB");
+                }
+                if (D.lfe_mixgain!=(int8u)-1)
+                    Fill(Stream_Audio, 0, (P+" Downmix LfeMixGain").c_str(), Value(Ac4_loro_centre_mixgain, D.lfe_mixgain, 1)+" dB");
+                if (D.preferred_dmx_method!=(int8u)-1)
+                    Fill(Stream_Audio, 0, (P+" Downmix PreferredDownmix").c_str(), Value(Ac4_preferred_dmx_method, D.preferred_dmx_method));
+            }
         }
 
-        for (size_t s=0; s<Presentation.substream_group_info_specifiers.size(); s++)
+        for (size_t s=0; s<Presentation_Current.substream_group_info_specifiers.size(); s++)
         {
-            Fill(Stream_Audio, 0, Ztring(__T("Presentation")+Ztring::ToZtring(p)+__T(" SubstreamGroups")).To_UTF8().c_str(), Presentation.substream_group_info_specifiers[s]);
+            Fill(Stream_Audio, 0, (P+" Groups").c_str(), Presentation_Current.substream_group_info_specifiers[s]);
         }
     }
     for (size_t g=0; g<Groups.size(); g++)
@@ -270,39 +411,43 @@ void File_Ac4::Streams_Fill()
         string Summary;
         for (size_t p=0; p<Presentations.size(); p++)
         {
-            const presentation& Presentation=Presentations[p];
-            for (size_t s=0; s<Presentation.substream_group_info_specifiers.size(); s++)
+            const presentation& Presentation_Current=Presentations[p];
+            for (size_t s=0; s<Presentation_Current.substream_group_info_specifiers.size(); s++)
             {
-                const size_t& Specifier=Presentation.substream_group_info_specifiers[s];
+                const size_t& Specifier=Presentation_Current.substream_group_info_specifiers[s];
                 if (Specifier==g)
                 {
-                    if (!Summary.empty())
-                        Summary +=" / ";
-                    Summary+=Presentation.presentation_config==(int8u)-1?"Main":Value(Ac4_presentation_config, Presentation.presentation_config);
+                    string Summary2=Presentation_Current.presentation_config==(int8u)-1?"Main":Value(Ac4_presentation_config, Presentation_Current.presentation_config);
+                    if (Summary2!=Summary)
+                    {
+                        if (!Summary.empty())
+                            Summary+=" / ";
+                        Summary+=Summary2;
+                    }
                 }
             }
         }
-        if (!Group.language_tag_bytes.empty())
+        if (!Group.ContentInfo.language_tag_bytes.empty())
         {
             Summary+=" (";
-            Summary+=Group.language_tag_bytes;
+            Summary+=Group.ContentInfo.language_tag_bytes;
             Summary+=')';
         }
         Fill(Stream_Audio, 0, Ztring(__T("Group")+Ztring::ToZtring(g)).To_UTF8().c_str(), Summary);
-        if (!Group.language_tag_bytes.empty())
-            Fill(Stream_Audio, 0, Ztring(__T("Group")+Ztring::ToZtring(g)+__T(" Language")).To_UTF8().c_str(), Group.language_tag_bytes);
-        if (Group.content_classifier!=(int8u)-1)
-            Fill(Stream_Audio, 0, Ztring(__T("Group")+Ztring::ToZtring(g)+__T(" Classifier")).To_UTF8().c_str(), Value(Ac4_content_classifier, Group.content_classifier));
+        if (!Group.ContentInfo.language_tag_bytes.empty())
+            Fill(Stream_Audio, 0, Ztring(__T("Group")+Ztring::ToZtring(g)+__T(" Language")).To_UTF8().c_str(), Group.ContentInfo.language_tag_bytes);
+        if (Group.ContentInfo.content_classifier!=(int8u)-1)
+            Fill(Stream_Audio, 0, Ztring(__T("Group")+Ztring::ToZtring(g)+__T(" Classifier")).To_UTF8().c_str(), Value(Ac4_content_classifier, Group.ContentInfo.content_classifier));
         Fill(Stream_Audio, 0, Ztring(__T("Group")+Ztring::ToZtring(g)+__T(" ChannelCoded")).To_UTF8().c_str(), Group.b_channel_coded?"Yes":"No");
         Fill(Stream_Audio, 0, Ztring(__T("Group")+Ztring::ToZtring(g)+__T(" NumberOfSubstreams")).To_UTF8().c_str(), Group.Substreams.size());
         for (size_t s=0; s<Group.Substreams.size(); s++)
         {
             const group_substream& Substream=Group.Substreams[s];
             if (Substream.ch_mode!=(int8u)-1)
-                Fill(Stream_Audio, 0, Ztring(__T("Group")+Ztring::ToZtring(g)+__T(" Substream_Infoss")).To_UTF8().c_str(), Substream.substream_index);
+                Fill(Stream_Audio, 0, Ztring(__T("Group")+Ztring::ToZtring(g)+__T(" Substreams")).To_UTF8().c_str(), Substream.substream_index);
         }
     }
-    for (map<int8u, ac4_substream_infos>::iterator Substream_Info=Substream_Infos.begin(); Substream_Info!=Substream_Infos.end(); Substream_Info++)
+    for (map<int8u, audio_substream>::iterator Substream_Info=AudioSubstreams.begin(); Substream_Info!=AudioSubstreams.end(); Substream_Info++)
     {
         string Summary;
         for (size_t g=0; g<Groups.size(); g++)
@@ -313,18 +458,37 @@ void File_Ac4::Streams_Fill()
                 const group_substream& Substream=Group.Substreams[s];
                 if (Substream.substream_index==Substream_Info->first && Substream.ch_mode!=(int8u)-1)
                 {
-                    if (!Summary.empty())
-                        Summary +=" / ";
-                    Summary+=Value(Ac4_ch_mode, Substream.ch_mode);
+                    string Summary2=Value(Ac4_ch_mode, Substream.ch_mode);
+                    if (Summary2!=Summary)
+                    {
+                        if (!Summary.empty())
+                            Summary+=" / ";
+                        Summary+=Summary2;
+                    }
                 }
             }
         }
-        Fill(Stream_Audio, 0, Ztring(__T("Substream")+Ztring::ToZtring(Substream_Info->first)).To_UTF8().c_str(), Summary);
-        Fill(Stream_Audio, 0, Ztring(__T("Substream")+Ztring::ToZtring(Substream_Info->first)+__T(" ChannelLayout")).To_UTF8().c_str(), Summary); //TODO layout
+        if (Summary.empty())
+        {
+            Summary="?";
+        }
+        string S=Ztring(__T("Substream")+Ztring::ToZtring(Substream_Info->first)).To_UTF8();
+        Fill(Stream_Audio, 0, S.c_str(), Summary);
+        Fill(Stream_Audio, 0, (S+" ChannelLayout").c_str(), Summary); //TODO layout
         if (Substream_Info->second.LoudnessInfo.dialnorm_bits!=(int8u)-1)
-            Fill(Stream_Audio, 0, Ztring(__T("Substream")+Ztring::ToZtring(Substream_Info->first)+__T(" dialnorm")).To_UTF8().c_str(), -0.25*Substream_Info->second.LoudnessInfo.dialnorm_bits, 2);
+            Fill(Stream_Audio, 0, (S+" dialnorm").c_str(), -0.25*Substream_Info->second.LoudnessInfo.dialnorm_bits, 2);
         if (Substream_Info->second.LoudnessInfo.truepk!=(int16u)-1)
-            Fill(Stream_Audio, 0, Ztring(__T("Substream")+Ztring::ToZtring(Substream_Info->first)+__T(" TruePeak")).To_UTF8().c_str(), (Substream_Info->second.LoudnessInfo.truepk-1024)/10.0, 1);
+            Fill(Stream_Audio, 0, (S+" TruePeak").c_str(), (Substream_Info->second.LoudnessInfo.truepk-1024)/10.0, 1);
+        {
+            const preprocessing& P=Substream_Info->second.Preprocessing;
+            if (P.phase90_info_mc!=(int8u)-1)
+            {
+                Fill(Stream_Audio, 0, (S+" Preprocessing").c_str(), "Yes");
+                Fill(Stream_Audio, 0, (S+" Preprocessing Phase90FilterInfo").c_str(), Value(Ac4_phase90_info_mc, P.phase90_info_mc));
+                Fill(Stream_Audio, 0, (S+" Preprocessing SurroundAttenuationKnown").c_str(), P.b_surround_attenuation_known?"Yes":"No");
+                Fill(Stream_Audio, 0, (S+" Preprocessing LfeAttenuationKnown").c_str(), P.b_lfe_attenuation_known?"Yes":"No");
+            }
+        }
     }
 }
 
@@ -644,9 +808,11 @@ void File_Ac4::ac4_toc()
 
     IFrames.push_back(Frame_Count); //TODO
     Presentations.clear();
+    Presentation_Current=NULL;
     Groups.clear();
-    Decoders.clear(); // TODO: fix scope
-    max_group_index = 0;
+    Group_Current=NULL;
+    AudioSubstreams.clear();
+    max_group_index=0;
 
     TESTELSE_SB_SKIP(                                           "b_single_presentation");
         n_presentations=1;
@@ -707,6 +873,9 @@ void File_Ac4::ac4_toc()
 //---------------------------------------------------------------------------
 void File_Ac4::ac4_presentation_info()
 {
+    Presentations.resize(Presentations.size()+1);
+    Presentation_Current=&Presentations.back();
+
     bool b_single_substream, b_add_emdf_substreams=false;
     int8u presentation_config;
 
@@ -817,6 +986,7 @@ void File_Ac4::ac4_presentation_info()
 void File_Ac4::ac4_presentation_v1_info()
 {
     Presentations.resize(Presentations.size()+1);
+    Presentation_Current=&Presentations.back();
 
     bool b_single_substream_group, b_add_emdf_substreams=false;
     int8u presentation_config, n_substream_groups=0, b_multi_pid_PresentAndValue=(int8u)-1;
@@ -937,8 +1107,11 @@ void File_Ac4::ac4_presentation_v1_info()
             emdf_info();
     }
 
-    Presentations.back().n_substream_groups=n_substream_groups;
-    Presentations.back().b_multi_pid_PresentAndValue=b_multi_pid_PresentAndValue;
+    if (Presentation_Current)
+    {
+        Presentation_Current->n_substream_groups=n_substream_groups;
+        Presentation_Current->b_multi_pid_PresentAndValue=b_multi_pid_PresentAndValue;
+    }
     Element_End0();
 }
 
@@ -963,7 +1136,8 @@ void File_Ac4::ac4_sgi_specifier()
         if (max_group_index<group_index)
             max_group_index=group_index;
 
-        Presentations.back().substream_group_info_specifiers.push_back(group_index);
+        if (Presentation_Current)
+            Presentation_Current->substream_group_info_specifiers.push_back(group_index);
     }
     Element_End0();
 }
@@ -974,6 +1148,8 @@ void File_Ac4::ac4_substream_info()
     int8u channel_mode, substream_index;
     Element_Begin1(                                             "ac4_substream_info");
         int32u channel_mode32;
+        bool b_content_type;
+        content_info ContentInfo;
         Get_V4(1, 2, 4, 7, channel_mode32,                      "channel_mode");
         if (channel_mode32==127)
         {
@@ -995,8 +1171,8 @@ void File_Ac4::ac4_substream_info()
         if (channel_mode >=122 && channel_mode <= 125)
             Skip_SB(                                            "add_ch_base");
 
-        TEST_SB_SKIP(                                           "b_content_type");
-            content_type();
+        TEST_SB_GET(b_content_type,                             "b_content_type");
+            content_type(ContentInfo);
         TEST_SB_END();
 
         for (int8u Pos=0; Pos<frame_rate_factor; Pos++)
@@ -1010,10 +1186,15 @@ void File_Ac4::ac4_substream_info()
             substream_index32+=3;
             substream_index=(int8u)substream_index32;
         }
-        Substream_Infos[substream_index].Sus_Ver=false;
-        Substream_Infos[substream_index].Channel_Coded=true; /* TODO: correct value ? */
-        Substream_Infos[substream_index].Channel_Mode=channel_mode;
+        
         Substream_Type[substream_index]=Type_Ac4_Substream;
+
+        audio_substream* AudioSubstream_Current=&AudioSubstreams[substream_index];
+        AudioSubstream_Current->Sus_Ver=false;
+        AudioSubstream_Current->Channel_Coded=true; /* TODO: correct value ? */
+        AudioSubstream_Current->Channel_Mode=channel_mode;
+        if (b_content_type)
+            AudioSubstream_Current->ContentInfo=ContentInfo;
     Element_End0();
 }
 
@@ -1021,6 +1202,7 @@ void File_Ac4::ac4_substream_info()
 void File_Ac4::ac4_substream_group_info()
 {
     Groups.resize(Groups.size()+1);
+    Group_Current=&Groups.back();
 
     bool sus_ver, b_channel_coded, b_substreams_present, b_hsf_ext, b_single_substream;
     int8u n_lf_substreams;
@@ -1072,11 +1254,14 @@ void File_Ac4::ac4_substream_group_info()
     TESTELSE_SB_END();
 
     TEST_SB_SKIP(                                               "content_type");
-        content_type();
+        content_type(Group_Current->ContentInfo);
     TEST_SB_END();
 
-    Groups.back().b_channel_coded=b_channel_coded;
-    Groups.back().b_hsf_ext=b_hsf_ext;
+    if (Group_Current)
+    {
+        Group_Current->b_channel_coded=b_channel_coded;
+        Group_Current->b_hsf_ext=b_hsf_ext;
+    }
 
     Element_End0();
 }
@@ -1097,15 +1282,15 @@ void File_Ac4::ac4_hsf_ext_substream_info(bool b_substreams_present)
             substream_index=(int8u)substream_index32;
         }
 
-        if (bitstream_version>1)
-        {
-            Groups.back().Substreams.resize(Groups.back().Substreams.size()+1);
-            Groups.back().Substreams.back().substream_type=Type_Ac4_Hsf_Ext_Substream;
-            Groups.back().Substreams.back().substream_index=substream_index;
-            Groups.back().Substreams.back().ch_mode=(int8u)-1;
-        }
-
         Substream_Type[substream_index]=Type_Ac4_Hsf_Ext_Substream;
+
+        if (Group_Current)
+        {
+            Group_Current->Substreams.resize(Group_Current->Substreams.size()+1);
+            Group_Current->Substreams.back().substream_type=Type_Ac4_Hsf_Ext_Substream;
+            Group_Current->Substreams.back().substream_index=substream_index;
+            Group_Current->Substreams.back().ch_mode=(int8u)-1;
+        }
     }
     Element_End0();
 }
@@ -1156,28 +1341,33 @@ void File_Ac4::ac4_substream_info_chan(bool sus_ver)
         substream_index=(int8u)substream_index32;
     }
 
-    Substream_Infos[substream_index].Sus_Ver=sus_ver;
-    Substream_Infos[substream_index].Channel_Coded=true;
-    Substream_Infos[substream_index].Channel_Mode=channel_mode;
     Substream_Type[substream_index]=Type_Ac4_Substream;
 
-    Groups.back().Substreams.resize(Groups.back().Substreams.size()+1);
-    Groups.back().Substreams.back().substream_type=Type_Ac4_Substream;
-    Groups.back().Substreams.back().substream_index=substream_index;
-    Groups.back().Substreams.back().ch_mode=Channel_Mode_to_Ch_Mode(channel_mode);
-    switch (Groups.back().Substreams.back().ch_mode)
+    audio_substream* AudioSubstream_Current=&AudioSubstreams[substream_index];
+    AudioSubstream_Current->Sus_Ver=sus_ver;
+    AudioSubstream_Current->Channel_Coded=true;
+    AudioSubstream_Current->Channel_Mode=channel_mode;
+
+    if (Group_Current)
     {
-    case 11:
-    case 13:
-        Groups.back().Substreams.back().ch_mode_core=5; break;
-    case 12:
-    case 14:
-        Groups.back().Substreams.back().ch_mode_core=6; break;
+        Group_Current->Substreams.resize(Group_Current->Substreams.size()+1);
+        Group_Current->Substreams.back().substream_type=Type_Ac4_Substream;
+        Group_Current->Substreams.back().substream_index=substream_index;
+        Group_Current->Substreams.back().ch_mode=Channel_Mode_to_Ch_Mode(channel_mode);
+        switch (Group_Current->Substreams.back().ch_mode)
+        {
+            case 11:
+            case 13:
+                        Group_Current->Substreams.back().ch_mode_core=5;
+                        break;
+            case 12:
+            case 14:
+                        Group_Current->Substreams.back().ch_mode_core=6;
+                        break;
+        }
+        Group_Current->Substreams.back().b_4_back_channels_present=b_4_back_channels_present;
+        Group_Current->Substreams.back().top_channels_present=top_channels_present;
     }
-
-    Groups.back().Substreams.back().b_4_back_channels_present=b_4_back_channels_present;
-    Groups.back().Substreams.back().top_channels_present=top_channels_present;
-
     Element_End0();
 }
 
@@ -1237,23 +1427,23 @@ void File_Ac4::ac4_substream_info_ajoc(bool b_substreams_present)
             substream_index32+=3;
             substream_index=(int8u)substream_index32;
         }
-        Substream_Infos[substream_index].Sus_Ver=true;
-        Substream_Infos[substream_index].Channel_Mode=(int16u)-1;
-        Substream_Infos[substream_index].Channel_Coded=false;
+
         Substream_Type[substream_index]=Type_Ac4_Substream;
 
-        Groups.back().Substreams.resize(Groups.back().Substreams.size()+1);
-        Groups.back().Substreams.back().substream_type=Type_Ac4_Substream;
-        Groups.back().Substreams.back().substream_index=substream_index;
-        Groups.back().Substreams.back().b_static_dmx=b_static_dmx;
-        Groups.back().Substreams.back().ch_mode=(int8u)-1;
+        audio_substream* AudioSubstream_Current=&AudioSubstreams[substream_index];
+        AudioSubstream_Current->Sus_Ver=true;
+        AudioSubstream_Current->Channel_Coded=false;
+        AudioSubstream_Current->Channel_Mode=(int16u)-1;
 
-        if (b_static_dmx)
+        if (Group_Current)
         {
-            if (b_lfe)
-                Groups.back().Substreams.back().ch_mode_core=4;
-            else
-                Groups.back().Substreams.back().ch_mode_core=3;
+            Group_Current->Substreams.resize(Group_Current->Substreams.size()+1);
+            Group_Current->Substreams.back().substream_type=Type_Ac4_Substream;
+            Group_Current->Substreams.back().substream_index=substream_index;
+            Group_Current->Substreams.back().b_static_dmx=b_static_dmx;
+            Group_Current->Substreams.back().ch_mode=(int8u)-1;
+            if (b_static_dmx)
+                Group_Current->Substreams.back().ch_mode_core=b_lfe?4:3;
         }
     }
     Element_End0();
@@ -1318,15 +1508,21 @@ void File_Ac4::ac4_substream_info_obj(bool b_substreams_present)
             substream_index32+=3;
             substream_index=(int8u)substream_index32;
         }
-        Substream_Infos[substream_index].Sus_Ver=true;
-        Substream_Infos[substream_index].Channel_Mode=(int16u)-1;
-        Substream_Infos[substream_index].Channel_Coded=false;
+
         Substream_Type[substream_index]=Type_Ac4_Substream;
 
-        Groups.back().Substreams.resize(Groups.back().Substreams.size()+1);
-        Groups.back().Substreams.back().substream_type=Type_Ac4_Substream;
-        Groups.back().Substreams.back().substream_index=substream_index;
-        Groups.back().Substreams.back().ch_mode=(int8u)-1;
+        audio_substream* AudioSubstream_Current=&AudioSubstreams[substream_index];
+        AudioSubstream_Current->Sus_Ver=true;
+        AudioSubstream_Current->Channel_Coded=false;
+        AudioSubstream_Current->Channel_Mode=(int16u)-1;
+
+        if (Group_Current)
+        {
+            Group_Current->Substreams.resize(Group_Current->Substreams.size()+1);
+            Group_Current->Substreams.back().substream_type=Type_Ac4_Substream;
+            Group_Current->Substreams.back().substream_index=substream_index;
+            Group_Current->Substreams.back().ch_mode=(int8u)-1;
+        }
     }
     Element_End0();
 }
@@ -1349,9 +1545,12 @@ void File_Ac4::ac4_presentation_substream_info()
         substream_index=(int8u)substream_index32;
     }
 
-    Presentations.back().substream_index=substream_index;
-    Presentations.back().b_alternative = b_alternative;
-    Presentations.back().b_pres_ndot=b_pres_ndot;
+    if (Presentation_Current)
+    {
+        Presentation_Current->substream_index=substream_index;
+        Presentation_Current->b_alternative=b_alternative;
+        Presentation_Current->b_pres_ndot=b_pres_ndot;
+    }
 
     Substream_Type[substream_index]=Type_Ac4_Presentation_Substream;
     Element_End0();
@@ -1429,7 +1628,7 @@ void File_Ac4::bed_dyn_obj_assignment(int8u n_signals)
 }
 
 //---------------------------------------------------------------------------
-void File_Ac4::content_type()
+void File_Ac4::content_type(content_info& ContentInfo)
 {
     Element_Begin1(                                             "content_type");
         int8u content_classifier;
@@ -1445,12 +1644,12 @@ void File_Ac4::content_type()
                 {
                     int8u language_tag_bytes;
                     Get_S1 (8, language_tag_bytes,              "language_tag_bytes");
-                    Groups.back().language_tag_bytes+=(language_tag_bytes<0x80?language_tag_bytes:'?');
+                    ContentInfo.language_tag_bytes+=(language_tag_bytes<0x80?language_tag_bytes:'?');
                 }
             TESTELSE_SB_END();
         TEST_SB_END();
 
-        Groups.back().content_classifier=content_classifier;
+        ContentInfo.content_classifier=content_classifier;
     Element_End0();
 }
 
@@ -1557,10 +1756,13 @@ void File_Ac4::emdf_payloads_substream_info()
     }
     Substream_Type[substream_index]=Type_Emdf_Payloads_Substream;
 
-    Groups.back().Substreams.resize(Groups.back().Substreams.size()+1);
-    Groups.back().Substreams.back().substream_type=Type_Emdf_Payloads_Substream;
-    Groups.back().Substreams.back().substream_index=substream_index;
-    Groups.back().Substreams.back().ch_mode=(int8u)-1;
+    if (Group_Current)
+    {
+        Group_Current->Substreams.resize(Group_Current->Substreams.size()+1);
+        Group_Current->Substreams.back().substream_type=Type_Emdf_Payloads_Substream;
+        Group_Current->Substreams.back().substream_index=substream_index;
+        Group_Current->Substreams.back().ch_mode=(int8u)-1;
+    }
     Element_End0();
 }
 
@@ -1656,11 +1858,16 @@ void File_Ac4::oamd_substream_info(bool b_substreams_present)
             substream_index32+=3;
             substream_index=(int8u)substream_index32;
         }
+        
         Substream_Type[substream_index]=Type_Oamd_Substream;
-        Groups.back().Substreams.resize(Groups.back().Substreams.size()+1);
-        Groups.back().Substreams.back().substream_type=Type_Oamd_Substream;
-        Groups.back().Substreams.back().substream_index=substream_index;
-        Groups.back().Substreams.back().ch_mode=(int8u)-1;
+        
+        if (Group_Current)
+        {
+            Group_Current->Substreams.resize(Group_Current->Substreams.size()+1);
+            Group_Current->Substreams.back().substream_type=Type_Oamd_Substream;
+            Group_Current->Substreams.back().substream_index=substream_index;
+            Group_Current->Substreams.back().ch_mode=(int8u)-1;
+        }
     }
     Element_End0();
 }
@@ -1727,14 +1934,17 @@ void File_Ac4::ac4_substream(size_t Substream_Index)
 //---------------------------------------------------------------------------
 void File_Ac4::ac4_presentation_substream(size_t Substream_Index)
 {
+    presentation& Presentation=Presentations[Substream_Index];
+    loudness_info& L=Presentation.LoudnessInfo;
+
     int8u name_length=32, n_targets, add_data_bytes;
 
-    int8u pres_ch_mode=(int8u)-1, pres_ch_mode_core=(int8u)-1, pres_top_channel_pairs=0, dialnorm_bits, n_substreams_in_presentation=0;
+    int8u pres_ch_mode=(int8u)-1, pres_ch_mode_core=(int8u)-1, pres_top_channel_pairs=0, n_substreams_in_presentation=0;
     bool b_obj_or_ajoc=false, b_obj_or_ajoc_adaptive=false, b_pres_4_back_channels_present=false, b_pres_has_lfe=false;
 
-    for (size_t Pos=0; Pos<Presentations[Substream_Index].substream_group_info_specifiers.size(); Pos++)
+    for (size_t Pos=0; Pos<Presentation.substream_group_info_specifiers.size(); Pos++)
     {
-        int8u Group_Index=Presentations[Substream_Index].substream_group_info_specifiers[Pos];
+        int8u Group_Index=Presentation.substream_group_info_specifiers[Pos];
         for (size_t Pos2=0; Pos2<Groups[Group_Index].Substreams.size(); Pos2++)
         {
             if (Groups[Group_Index].Substreams[Pos2].substream_type==Type_Ac4_Substream)
@@ -1785,7 +1995,7 @@ void File_Ac4::ac4_presentation_substream(size_t Substream_Index)
 
     Element_Begin1("ac4_presentation_substream");
     BS_Begin();
-    if (Presentations[Substream_Index].b_alternative)
+    if (Presentation.b_alternative)
     {
         TEST_SB_SKIP(                                           "b_name_present");
             TEST_SB_SKIP(                                       "b_length");
@@ -1846,9 +2056,9 @@ void File_Ac4::ac4_presentation_substream(size_t Substream_Index)
         Skip_BS(add_data_bytes*8,                               "add_data");
     TEST_SB_END();
 
-    Get_S1 (7, dialnorm_bits,                                   "dialnorm_bits");
+    Get_S1 (7, L.dialnorm_bits,                                 "dialnorm_bits");
     TEST_SB_SKIP(                                               "b_further_loudness_info");
-        further_loudness_info(Presentations[Substream_Index].LoudnessInfo, true, true);
+        further_loudness_info(Presentation.LoudnessInfo, true, true);
     TEST_SB_END();
 
     int16u drc_metadata_size_value;
@@ -1859,14 +2069,14 @@ void File_Ac4::ac4_presentation_substream(size_t Substream_Index)
         drc_metadata_size_value+=(int16u)drc_metadata_size_value32<<5;
     TEST_SB_END();
 
-    drc_frame(Presentations[Substream_Index].DrcInfo, Presentations[Substream_Index].b_pres_ndot);
+    drc_frame(Presentation.DrcInfo, Presentation.b_pres_ndot);
 
-    if (Presentations[Substream_Index].n_substream_groups>1)
+    if (Presentation.n_substream_groups>1)
     {
         TEST_SB_SKIP(                                           "b_substream_group_gains_present");
             TESTELSE_SB_SKIP(                                   "b_keep");
             TESTELSE_SB_ELSE(                                   "b_keep");
-                for (int8u Pos=0; Pos<Presentations[Substream_Index].n_substream_groups; Pos++)
+                for (int8u Pos=0; Pos<Presentation.n_substream_groups; Pos++)
                     Skip_S1(6,                                  "sg_gain[sg]");
             TESTELSE_SB_END();
         TEST_SB_END();
@@ -1890,22 +2100,20 @@ void File_Ac4::ac4_presentation_substream(size_t Substream_Index)
         TEST_SB_END();
     TEST_SB_END();
 
-    custom_dmx_data(pres_ch_mode, pres_ch_mode_core, b_pres_4_back_channels_present, pres_top_channel_pairs, b_pres_has_lfe);
+    custom_dmx_data(Presentation.Dmx, pres_ch_mode, pres_ch_mode_core, b_pres_4_back_channels_present, pres_top_channel_pairs, b_pres_has_lfe);
     loud_corr(pres_ch_mode, pres_ch_mode_core, false/* TODO: b_objects? */);
     size_t byte_align=BS->Remain()%8;
     if (byte_align)
         Skip_S1(byte_align,                                     "byte_align");
     BS_End();
     Element_End0();
-
-    Presentations[Substream_Index].LoudnessInfo.dialnorm_bits=dialnorm_bits;
 }
 //---------------------------------------------------------------------------
 void File_Ac4::metadata(size_t Substream_Index)
 {
     Element_Begin1("metadata");
-    basic_metadata(Substream_Infos[Substream_Index].LoudnessInfo, Substream_Infos[Substream_Index].Channel_Mode, Substream_Infos[Substream_Index].Sus_Ver);
-    extended_metadata(Substream_Infos[Substream_Index].Channel_Mode, Substream_Infos[Substream_Index].Sus_Ver);
+    basic_metadata(AudioSubstreams[Substream_Index].LoudnessInfo, AudioSubstreams[Substream_Index].Preprocessing, AudioSubstreams[Substream_Index].Channel_Mode, AudioSubstreams[Substream_Index].Sus_Ver);
+    extended_metadata(AudioSubstreams[Substream_Index].Channel_Mode, AudioSubstreams[Substream_Index].Sus_Ver);
     int8u tools_metadata_size;
     Get_S1(7, tools_metadata_size, "tools_metadata_size");
     TEST_SB_SKIP(                                               "b_more_bits");
@@ -1965,18 +2173,18 @@ void File_Ac4::metadata(size_t Substream_Index)
 }
 
 //---------------------------------------------------------------------------
-void File_Ac4::basic_metadata(loudness_info& LoudnessInfo, int16u channel_mode, bool sus_ver)
+void File_Ac4::basic_metadata(loudness_info& L, preprocessing& P, int16u channel_mode, bool sus_ver)
 {
     int8u ch_mode=Channel_Mode_to_Ch_Mode(channel_mode), dialnorm_bits=(int8u)-1;
     Element_Begin1("basic_metadata");
     if (!sus_ver)
-        Get_S1 (7, dialnorm_bits,                               "dialnorm_bits");
+        Get_S1 (7, L.dialnorm_bits,                             "dialnorm_bits");
 
     TEST_SB_SKIP(                                               "b_more_basic_metadata");
         if (!sus_ver)
         {
             TEST_SB_SKIP(                                       "b_further_loudness_info");
-                further_loudness_info(LoudnessInfo, sus_ver, false);
+                further_loudness_info(L, sus_ver, false);
             TEST_SB_END();
         }
         else
@@ -1984,7 +2192,7 @@ void File_Ac4::basic_metadata(loudness_info& LoudnessInfo, int16u channel_mode, 
             TEST_SB_SKIP(                                       "b_substream_loudness_info");
                 Skip_S1(8,                                      "substream_loudness_bits");
                 TEST_SB_SKIP(                                   "b_further_substream_loudness_info");
-                    further_loudness_info(LoudnessInfo, sus_ver, false);
+                    further_loudness_info(L, sus_ver, false);
                 TEST_SB_END();
             TEST_SB_END();
         }
@@ -2049,9 +2257,9 @@ void File_Ac4::basic_metadata(loudness_info& LoudnessInfo, int16u channel_mode, 
                     
                 TEST_SB_END();
             }
-            Skip_S1(2,                                          "phase90_info_mc");
-            Skip_SB(                                            "b_surround_attenuation_known");
-            Skip_SB(                                            "b_lfe_attenuation_known");
+            Get_S1 (2, P.phase90_info_mc,                       "phase90_info_mc");
+            Get_SB (   P.b_surround_attenuation_known,          "b_surround_attenuation_known");
+            Get_SB (   P.b_lfe_attenuation_known,               "b_lfe_attenuation_known");
         }
 
         TEST_SB_SKIP(                                           "b_dc_blocking");
@@ -2059,8 +2267,6 @@ void File_Ac4::basic_metadata(loudness_info& LoudnessInfo, int16u channel_mode, 
         TEST_SB_END();
     TEST_SB_END();
     Element_End0();
-
-    LoudnessInfo.dialnorm_bits=dialnorm_bits;
 }
 
 //---------------------------------------------------------------------------
@@ -2162,7 +2368,7 @@ void File_Ac4::extended_metadata(int16u channel_mode, bool sus_ver)
 }
 
 //---------------------------------------------------------------------------
-void File_Ac4::custom_dmx_data(int8u pres_ch_mode, int8u pres_ch_mode_core, bool b_pres_4_back_channels_present, int8u pres_top_channel_pairs, bool b_pres_has_lfe)
+void File_Ac4::custom_dmx_data(dmx& D, int8u pres_ch_mode, int8u pres_ch_mode_core, bool b_pres_4_back_channels_present, int8u pres_top_channel_pairs, bool b_pres_has_lfe)
 {
     int8u bs_ch_config=(int8u)-1, n_cdmx_configs;
     if (pres_top_channel_pairs>0 && pres_ch_mode>=11 && pres_ch_mode<=14)
@@ -2210,19 +2416,19 @@ void File_Ac4::custom_dmx_data(int8u pres_ch_mode, int8u pres_ch_mode_core, bool
     if ((pres_ch_mode!=(int8u)-1 && pres_ch_mode>=3) || (pres_ch_mode_core!=(int8u)-1 && pres_ch_mode_core>=3))
     {
         TEST_SB_SKIP(                                           "b_stereo_dmx_coeff");
-            Skip_S1(3,                                          "loro_centre_mixgain");
-            Skip_S1(3,                                          "loro_surround_mixgain");
+            Get_S1 (3, D.loro_centre_mixgain,                   "loro_centre_mixgain");
+            Get_S1 (3, D.loro_surround_mixgain,                 "loro_surround_mixgain");
             TEST_SB_SKIP(                                       "b_ltrt_mixinfo");
-                Skip_S1(3,                                      "ltrt_centre_mixgain");
-                Skip_S1(3,                                      "ltrt_surround_mixgain");
+                Get_S1 (3, D.ltrt_centre_mixgain,               "ltrt_centre_mixgain");
+                Get_S1 (3, D.ltrt_surround_mixgain,             "ltrt_surround_mixgain");
             TEST_SB_END();
             if (b_pres_has_lfe)
             {
                 TEST_SB_SKIP(                                   "b_lfe_mixinfo");
-                    Skip_S1(5,                                  "lfe_mixgain");
+                    Get_S1 (5, D.lfe_mixgain,                   "lfe_mixgain");
                 TEST_SB_END();
             }
-            Skip_S1(2,                                          "preferred_dmx_method");
+            Get_S1 (2, D.preferred_dmx_method,                  "preferred_dmx_method");
         TEST_SB_END();
     }
     Element_End0();
@@ -2490,7 +2696,7 @@ void File_Ac4::drc_frame(drc_info& DrcInfo, bool b_iframe)
         if (b_iframe)
             drc_config(DrcInfo);
 
-        drc_data();
+        drc_data(DrcInfo);
     TEST_SB_END();
     Element_End0();
 }
@@ -2501,15 +2707,36 @@ void File_Ac4::drc_config(drc_info& DrcInfo)
     int8u drc_decoder_nr_modes;
     Element_Begin1("drc_config");
         Get_S1(3, drc_decoder_nr_modes,                         "drc_decoder_nr_modes");
+        DrcInfo.Decoders.clear();
         for (int8u Pos=0; Pos<=drc_decoder_nr_modes; Pos++)
-            drc_decoder_mode_config(Pos);
+        {
+            DrcInfo.Decoders.resize(DrcInfo.Decoders.size()+1);
+            drc_decoder_mode_config(DrcInfo.Decoders.back());
+        }
+
+        //Manage drc_repeat_id
+        for (int8u i=0; i<=drc_decoder_nr_modes; i++)
+        {
+            if (DrcInfo.Decoders[i].drc_repeat_id!=(int8u)-1)
+            {
+                for (int8u j=0; j<=drc_decoder_nr_modes; j++)
+                    if (j!=i && DrcInfo.Decoders[j].drc_decoder_mode_id==DrcInfo.Decoders[i].drc_repeat_id)
+                    {
+                        int8u drc_decoder_mode_id=DrcInfo.Decoders[i].drc_decoder_mode_id;
+                        DrcInfo.Decoders[i]=DrcInfo.Decoders[j];
+                        DrcInfo.Decoders[i].drc_decoder_mode_id=drc_decoder_mode_id;
+                        DrcInfo.Decoders[i].drc_compression_curve_flag=true;
+                        break;
+                    }
+            }
+        }
 
         Get_S1 (3, DrcInfo.drc_eac3_profile,                    "drc_eac3_profile");
     Element_End0();
 }
 
 //---------------------------------------------------------------------------
-void File_Ac4::drc_data()
+void File_Ac4::drc_data(drc_info& DrcInfo)
 {
     bool curve_present=false;
     int16u drc_gainset_size;
@@ -2517,9 +2744,9 @@ void File_Ac4::drc_data()
     size_t Remain_Before, used_bits=0;
 
     Element_Begin1("drc_data");
-    for (int8u Pos=0; Pos<Decoders.size(); Pos++)
+    for (int8u Pos=0; Pos<DrcInfo.Decoders.size(); Pos++)
     {
-        if (!Decoders[Pos].drc_compression_curve_flag)
+        if (!DrcInfo.Decoders[Pos].drc_compression_curve_flag)
         {
             Get_S2(6, drc_gainset_size,                         "drc_gainset_size");
             TEST_SB_SKIP(                                       "b_more_bits");
@@ -2532,7 +2759,7 @@ void File_Ac4::drc_data()
             if (drc_version<=1)
             {
                 Remain_Before=BS->Remain();
-                drc_gains(Pos);
+                drc_gains(DrcInfo.Decoders[Pos]);
                 used_bits=Remain_Before-BS->Remain();
             }
 
@@ -2556,11 +2783,11 @@ void File_Ac4::drc_data()
 }
 
 //---------------------------------------------------------------------------
-void File_Ac4::drc_gains(int8u Index)
+void File_Ac4::drc_gains(drc_decoder_config& D)
 {
     Element_Begin1("drc_gains");
     Skip_S1(7,                                                  "drc_gain_val");
-    if (Decoders[Index].drc_gains_config>0)
+    if (D.drc_gains_config>0)
     {
         // TODO:
     }
@@ -2568,40 +2795,33 @@ void File_Ac4::drc_gains(int8u Index)
 }
 
 //---------------------------------------------------------------------------
-void File_Ac4::drc_decoder_mode_config(int8u Index)
+void File_Ac4::drc_decoder_mode_config(drc_decoder_config& D)
 {
-    Decoders.resize(Decoders.size()+1);
-
-    int8u drc_decoder_mode_id, drc_gains_config=0;
-    bool drc_compression_curve_flag=false;
+    D.drc_compression_curve_flag=false;
 
     Element_Begin1("drc_decoder_mode_config");
-    Get_S1(3, drc_decoder_mode_id,                              "drc_decoder_mode_id[pcount]");
-    if (drc_decoder_mode_id>3)
+    Get_S1(3, D.drc_decoder_mode_id,                            "drc_decoder_mode_id[pcount]");
+    if (D.drc_decoder_mode_id>3)
     {
         Skip_S1(5,                                              "drc_output_level_from");
         Skip_S1(5,                                              "drc_output_level_to");
     }
 
     TESTELSE_SB_SKIP(                                           "drc_repeat_profile_flag");
-        Skip_S1(3,                                              "drc_repeat_id");
-        drc_compression_curve_flag=true;
+        Get_S1 (3, D.drc_repeat_id,                             "drc_repeat_id");
+        D.drc_compression_curve_flag=true;
     TESTELSE_SB_ELSE(                                           "drc_repeat_profile_flag");
-        TESTELSE_SB_SKIP(                                       "drc_default_profile_flag");
-            drc_compression_curve_flag=true;
+        TESTELSE_SB_GET (D.drc_default_profile_flag,            "drc_default_profile_flag");
+            D.drc_compression_curve_flag=true;
         TESTELSE_SB_ELSE(                                       "drc_default_profile_flag");
-            TESTELSE_SB_GET(drc_compression_curve_flag,         "drc_compression_curve_flag[drc_decoder_mode_id[pcount]]");
+            TESTELSE_SB_GET(D.drc_compression_curve_flag,       "drc_compression_curve_flag[drc_decoder_mode_id[pcount]]");
                 drc_compression_curve();
             TESTELSE_SB_ELSE(                                   "drc_compression_curve_flag[drc_decoder_mode_id[pcount]]");
-                Skip_S1(2,                                      "drc_gains_config[drc_decoder_mode_id[pcount]]");
+                Get_S1 (2, D.drc_gains_config,                  "drc_gains_config[drc_decoder_mode_id[pcount]]");
             TESTELSE_SB_END();
         TESTELSE_SB_END();
     TESTELSE_SB_END();
     Element_End0();
-
-    Decoders.back().drc_decoder_mode_id=drc_decoder_mode_id;
-    Decoders.back().drc_compression_curve_flag=drc_compression_curve_flag;
-    Decoders.back().drc_gains_config=drc_gains_config;
 };
 
 //---------------------------------------------------------------------------
@@ -2648,24 +2868,24 @@ void File_Ac4::drc_compression_curve()
 }
 
 //---------------------------------------------------------------------------
-void File_Ac4::further_loudness_info(loudness_info& LoudnessInfo, bool sus_ver, bool b_presentation_ldn)
+void File_Ac4::further_loudness_info(loudness_info& L, bool sus_ver, bool b_presentation_ldn)
 {
-    int16u truepk=(int16u)-1;
-    int8u loudness_version, loud_prac_type, e_bits_size; // TODO: check if size is sufficient
+    bool b_loudcorr_type;
     Element_Begin1("further_loudness_info");
     if (b_presentation_ldn || !sus_ver)
     {
-        Get_S1(2, loudness_version,                             "loudness_version");
+        int8u loudness_version;
+        Get_S1 (2, loudness_version,                            "loudness_version");
         if (loudness_version==3)
             Skip_S1(4,                                          "extended_loudness_version");
 
-        Get_S1(4, loud_prac_type,                               "loud_prac_type");
-        if (loud_prac_type)
+        Get_S1(4, L.loud_prac_type,                             "loud_prac_type");
+        if (L.loud_prac_type)
         {
             TEST_SB_SKIP(                                       "b_loudcorr_dialgate");
-                Skip_S1(3,                                      "dialgate_prac_type");
+                Get_S1 (3, L.loud_dialgate_prac_type,           "dialgate_prac_type");
             TEST_SB_END();
-            Skip_SB(                                            "b_loudcorr_type");
+            Get_SB (L.b_loudcorr_type,                          "b_loudcorr_type");
         }
     }
     else
@@ -2674,11 +2894,11 @@ void File_Ac4::further_loudness_info(loudness_info& LoudnessInfo, bool sus_ver, 
     }
 
     TEST_SB_SKIP(                                               "b_loudrelgat");
-        Skip_S2(11,                                             "loudrelgat");
+        Get_S2 (11, L.loudrelgat,                               "loudrelgat");
     TEST_SB_END();
 
     TEST_SB_SKIP(                                               "b_loudspchgat");
-        Skip_S2(11,                                             "loudspchgat");
+        Get_S2 (11, L.loudspchgat,                              "loudspchgat");
         Skip_S1(3,                                              "dialgate_prac_type");
     TEST_SB_END();
 
@@ -2691,7 +2911,7 @@ void File_Ac4::further_loudness_info(loudness_info& LoudnessInfo, bool sus_ver, 
     TEST_SB_END();
 
     TEST_SB_SKIP(                                               "b_truepk");
-        Get_S2 (11, truepk,                                     "truepk");
+        Get_S2 (11, L.truepk,                                   "truepk");
     TEST_SB_END();
 
     TEST_SB_SKIP(                                               "b_max_truepk");
@@ -2713,8 +2933,8 @@ void File_Ac4::further_loudness_info(loudness_info& LoudnessInfo, bool sus_ver, 
     }
 
     TEST_SB_SKIP(                                               "b_lra");
-        Skip_S2(10,                                             "lra");
-        Skip_S1(3,                                              "lra_prac_type");
+        Get_S2 (10, L.lra,                                      "lra");
+        Get_S1 ( 3, L.lra_prac_type,                            "lra_prac_type");
     TEST_SB_END();
 
     TEST_SB_SKIP(                                               "b_loudmntry");
@@ -2722,7 +2942,7 @@ void File_Ac4::further_loudness_info(loudness_info& LoudnessInfo, bool sus_ver, 
     TEST_SB_END();
 
     TEST_SB_SKIP(                                               "b_max_loudmntry");
-        Skip_S2(11,                                             "max_loudmntry");
+        Get_S2 (11, L.max_loudmntry,                            "max_loudmntry");
     TEST_SB_END();
 
     if (sus_ver)
@@ -2733,6 +2953,7 @@ void File_Ac4::further_loudness_info(loudness_info& LoudnessInfo, bool sus_ver, 
     }
 
     TEST_SB_SKIP(                                               "b_extension");
+        int8u e_bits_size; // TODO: check if size is sufficient
         Get_S1(5, e_bits_size,                                  "e_bits_size");
         if (e_bits_size==31)
         {
@@ -2753,8 +2974,6 @@ void File_Ac4::further_loudness_info(loudness_info& LoudnessInfo, bool sus_ver, 
         Skip_BS(e_bits_size,                                    "extensions_bits");
     TEST_SB_END();
     Element_End0();
-
-    LoudnessInfo.truepk=truepk;
 }
 
 //---------------------------------------------------------------------------
