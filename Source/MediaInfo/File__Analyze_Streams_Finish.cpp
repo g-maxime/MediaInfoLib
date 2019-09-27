@@ -217,7 +217,7 @@ void File__Analyze::Streams_Finish_Global()
         Ztring down;
     };
     const size_t Subs_Size=2;
-    sub Subs[Subs_Size]={ {" SubstreamGroups", "Group"} , {" Substream_Infoss", "Substream"} };
+    sub Subs[Subs_Size]={ {" Groups", "Group"} , {" Substreams", "Substream"} };
     for (size_t Subs_Pos=0; Subs_Pos<Subs_Size; Subs_Pos++)
         for (size_t StreamKind=Stream_General; StreamKind<Stream_Max; StreamKind++)
             for (size_t StreamPos=0; StreamPos<(*Stream_More)[StreamKind].size(); StreamPos++)
@@ -263,7 +263,6 @@ void File__Analyze::Streams_Finish_Global()
                     }
                 (*Stream_More)[StreamKind][StreamPos]=Temp;
             }
-
 
     //Sub-elements
     for (size_t StreamKind=Stream_General; StreamKind<Stream_Max; StreamKind++)

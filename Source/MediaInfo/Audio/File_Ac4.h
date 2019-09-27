@@ -30,17 +30,56 @@ public :
 
     struct loudness_info
     {
-        int8u dialnorm_bits;
+        int8u dialnorm_bits; //TODO
+        int8u loud_prac_type;
+        int8u loud_dialgate_prac_type;
+        bool b_loudcorr_type;
+        int16u loudrelgat;
+        int16u loudspchgat;
         int16u truepk;
+        int16u lra;
+        int8u lra_prac_type;
+        int16u max_loudmntry;
 
         loudness_info() :
             dialnorm_bits((int8u)-1),
-            truepk((int16u)-1)
+            loud_prac_type((int8u)-1),
+            loud_dialgate_prac_type((int8u)-1),
+            loudrelgat((int16u)-1),
+            loudspchgat((int16u)-1),
+            truepk((int16u)-1),
+            lra((int16u)-1),
+            max_loudmntry((int16u)-1)
+        {}
+    };
+
+    struct preprocessing
+    {
+        int8u phase90_info_mc;
+        bool b_surround_attenuation_known;
+        bool b_lfe_attenuation_known;
+
+        preprocessing() :
+            phase90_info_mc((int8u)-1)
+        {}
+    };
+
+    struct drc_decoder_config
+    {
+        int8u drc_repeat_id;
+        bool drc_default_profile_flag;
+        int8u drc_decoder_mode_id;
+        bool drc_compression_curve_flag;
+        int8u drc_gains_config;
+
+        drc_decoder_config() :
+            drc_repeat_id((int8u)-1)
         {}
     };
 
     struct drc_info
     {
+        vector<drc_decoder_config> Decoders;
         int8u drc_eac3_profile;
 
         drc_info() :
@@ -48,12 +87,32 @@ public :
         {}
     };
 
-    struct ac4_substream_infos
+    struct dmx
     {
-        bool Sus_Ver;
-        bool Channel_Coded;
-        int16u Channel_Mode;
-        loudness_info LoudnessInfo;
+        int8u loro_centre_mixgain;
+        int8u loro_surround_mixgain;
+        int8u ltrt_centre_mixgain;
+        int8u ltrt_surround_mixgain;
+        int8u lfe_mixgain;
+        int8u preferred_dmx_method;
+
+        dmx() :
+            loro_centre_mixgain((int8u)-1),
+            loro_surround_mixgain((int8u)-1),
+            ltrt_centre_mixgain((int8u)-1),
+            ltrt_surround_mixgain((int8u)-1),
+            lfe_mixgain((int8u)-1),
+            preferred_dmx_method((int8u)-1)
+        {}
+    };
+
+    struct content_info
+    {
+        int8u content_classifier;
+        string language_tag_bytes;
+        content_info() :
+            content_classifier((int8u)-1)
+        {}
     };
 
     //Constructor/Destructor
@@ -93,7 +152,7 @@ private :
     void ac4_presentation_substream_info();
     void presentation_config_ext_info(int8u presentation_config);
     void bed_dyn_obj_assignment(int8u n_signals);
-    void content_type();
+    void content_type(content_info& ContentInfo);
     void frame_rate_multiply_info();
     void frame_rate_fractions_info();
     void emdf_info();
@@ -107,10 +166,10 @@ private :
     void ac4_presentation_substream(size_t Substream_Index);
 
     void metadata(size_t Substream_Index);
-    void basic_metadata(loudness_info& LoudnessInfo, int16u channel_mode, bool sus_ver);
+    void basic_metadata(loudness_info& LoudnessInfo, preprocessing& Preprocessing, int16u channel_mode, bool sus_ver);
     void extended_metadata(int16u channel_mode, bool sus_ver);
 
-    void custom_dmx_data(int8u pres_ch_mode, int8u pres_ch_mode_core, bool b_pres_4_back_channels_present, int8u pres_top_channel_pairs, bool b_pres_has_lfe);
+    void custom_dmx_data(dmx& Dmx, int8u pres_ch_mode, int8u pres_ch_mode_core, bool b_pres_4_back_channels_present, int8u pres_top_channel_pairs, bool b_pres_has_lfe);
     void cdmx_parameters(int8u bs_ch_config, int8u out_ch_config);
     void tool_scr_to_c_l();
     void tool_b4_to_b2();
@@ -122,9 +181,9 @@ private :
     void loud_corr(int8u pres_ch_mode, int8u pres_ch_mode_core, bool b_objects);
     void drc_frame(drc_info& DrcInfo, bool b_iframe);
     void drc_config(drc_info& DrcInfo);
-    void drc_data();
-    void drc_gains(int8u Index);
-    void drc_decoder_mode_config(int8u Index);
+    void drc_data(drc_info& DrcInfo);
+    void drc_gains(drc_decoder_config& Decoder);
+    void drc_decoder_mode_config(drc_decoder_config& Decoder);
     void drc_compression_curve();
 
     void further_loudness_info(loudness_info& LoudnessInfo, bool sus_ver, bool b_presentation_ldn);
@@ -151,6 +210,7 @@ private :
         Type_Oamd_Substream
     };
 
+    //Presentations
     struct presentation
     {
         bool b_pres_ndot;
@@ -162,12 +222,16 @@ private :
         vector<size_t> substream_group_info_specifiers;
         loudness_info LoudnessInfo;
         drc_info DrcInfo;
+        dmx Dmx;
 
         presentation() :
             presentation_config((int8u)-1)
         {}
     };
     vector<presentation> Presentations;
+    presentation* Presentation_Current;
+
+    //Groups
     struct group_substream
     {
         substream_type_t substream_type;
@@ -187,26 +251,28 @@ private :
             b_static_dmx(false)
         {}
     };
+
     struct group
     {
         vector<group_substream> Substreams;
-        int8u content_classifier;
-        string language_tag_bytes;
+        content_info ContentInfo;
         bool b_channel_coded;
         bool b_hsf_ext;
-        group() :
-            content_classifier((int8u)-1)
-        {}
     };
     vector<group> Groups;
-    struct drc_decoder_config
-    {
-        int8u drc_decoder_mode_id;
-        bool drc_compression_curve_flag;
-        int8u drc_gains_config;
-    };
-    vector<drc_decoder_config>Decoders;
+    group* Group_Current;
 
+    //Audio substreams
+    struct audio_substream
+    {
+        content_info ContentInfo;
+        bool Sus_Ver;
+        bool Channel_Coded;
+        int16u Channel_Mode;
+        loudness_info LoudnessInfo;
+        preprocessing Preprocessing;
+    };
+    std::map<int8u, audio_substream> AudioSubstreams;
 
     //Utils
     bool CRC_Compute(size_t Size);
@@ -237,8 +303,6 @@ private :
     vector<size_t> IFrames;
     std::vector<size_t> Substream_Size;
     std::map<int8u, substream_type_t> Substream_Type;
-    std::map<int8u, ac4_substream_infos> Substream_Infos;
-    //std::map<int8u, ac4_substream_group_infos> Substream_Group_Infos;
 };
 
 } //NameSpace
