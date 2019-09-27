@@ -87,6 +87,18 @@ public :
         {}
     };
 
+    struct de_config
+    {
+        int8u de_method;
+        int8u de_max_gain;
+        int8u de_channel_config;
+    };
+
+    struct de_info
+    {
+        de_config Config;
+    };
+
     struct dmx
     {
         int8u loro_centre_mixgain;
@@ -168,7 +180,9 @@ private :
     void metadata(size_t Substream_Index);
     void basic_metadata(loudness_info& LoudnessInfo, preprocessing& Preprocessing, int16u channel_mode, bool sus_ver);
     void extended_metadata(int16u channel_mode, bool sus_ver);
-
+    void dialog_enhancement(de_info& Info, int16u channel_mode, bool b_iframe);
+    void dialog_enhancement_config(de_info& Info);
+    void dialog_enhancement_data(de_info& Info, bool b_iframe, bool b_de_simulcast);
     void custom_dmx_data(dmx& Dmx, int8u pres_ch_mode, int8u pres_ch_mode_core, bool b_pres_4_back_channels_present, int8u pres_top_channel_pairs, bool b_pres_has_lfe);
     void cdmx_parameters(int8u bs_ch_config, int8u out_ch_config);
     void tool_scr_to_c_l();
@@ -270,6 +284,7 @@ private :
         bool Channel_Coded;
         int16u Channel_Mode;
         loudness_info LoudnessInfo;
+        de_info DeInfo;
         preprocessing Preprocessing;
     };
     std::map<int8u, audio_substream> AudioSubstreams;
