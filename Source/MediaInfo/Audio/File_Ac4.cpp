@@ -2215,7 +2215,7 @@ void File_Ac4::basic_metadata(loudness_info& L, preprocessing& P, int16u channel
         }
         else if (ch_mode>1)
         {
-            if (sus_ver)
+            if (!sus_ver)
             {
                 TEST_SB_SKIP(                                   "b_stereo_dmx_coeff");
                     Skip_S1(3,                                  "loro_centre_mixgain");
