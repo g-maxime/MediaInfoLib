@@ -150,6 +150,8 @@ MediaInfo_Config_MediaInfo::MediaInfo_Config_MediaInfo()
     Audio_MergeMonoStreams=false;
     File_Demux_Interleave=false;
     File_ID_OnlyRoot=false;
+    File_ExpandSubs_Backup=NULL;
+    File_ExpandSubs_Source=NULL;
     #if MEDIAINFO_ADVANCED
         File_IgnoreSequenceFileSize=false;
         File_IgnoreSequenceFilesCount=false;
@@ -299,6 +301,7 @@ MediaInfo_Config_MediaInfo::MediaInfo_Config_MediaInfo()
 MediaInfo_Config_MediaInfo::~MediaInfo_Config_MediaInfo()
 {
     delete[] File_Buffer; //File_Buffer=NULL;
+    delete (std::vector<std::vector<ZtringListList> >*)File_ExpandSubs_Backup; //File_ExpandSubs_Backup=NULL
 
     #if MEDIAINFO_EVENTS
         for (events_delayed::iterator Event=Events_Delayed.begin(); Event!=Events_Delayed.end(); ++Event)
@@ -439,6 +442,11 @@ Ztring MediaInfo_Config_MediaInfo::Option (const String &Option, const String &V
     else if (Option_Lower==__T("file_id_onlyroot"))
     {
         File_ID_OnlyRoot_Set(!(Value==__T("0") || Value.empty()));
+        return __T("");
+    }
+    else if (Option_Lower==__T("file_expandsubs"))
+    {
+        File_ExpandSubs_Set(!(Value==__T("0") || Value.empty()));
         return __T("");
     }
     else if (Option_Lower==__T("file_id_onlyroot_get"))
@@ -1452,6 +1460,140 @@ bool MediaInfo_Config_MediaInfo::File_ID_OnlyRoot_Get ()
 {
     CriticalSectionLocker CSL(CS);
     return File_ID_OnlyRoot;
+}
+
+//---------------------------------------------------------------------------
+void MediaInfo_Config_MediaInfo::File_ExpandSubs_Set (bool NewValue)
+{
+    { //for CSL
+        CriticalSectionLocker CSL(CS);
+        if ((File_ExpandSubs_Backup && NewValue) || (!File_ExpandSubs_Backup && !NewValue))
+            return; //No change
+        if (File_ExpandSubs_Backup)
+        {
+            //We want the default
+            if (File_ExpandSubs_Source)
+            {
+                //Config has the backup, Source has the expanded one
+                std::vector<std::vector<ZtringListList> >* Stream_More=(std::vector<std::vector<ZtringListList> >*)File_ExpandSubs_Source;
+                std::vector<std::vector<ZtringListList> >* Backup=(std::vector<std::vector<ZtringListList> >*)File_ExpandSubs_Backup;
+                *Stream_More=*Backup;
+                Backup->clear();
+            }
+            delete (std::vector<std::vector<ZtringListList> > *)File_ExpandSubs_Backup;
+            File_ExpandSubs_Backup=NULL;
+        }
+        else
+        {
+            //We want the expanded subs
+            File_ExpandSubs_Backup=new std::vector<std::vector<ZtringListList> >;
+        }
+    }
+
+    File_ExpandSubs_Update(NULL);
+}
+
+bool MediaInfo_Config_MediaInfo::File_ExpandSubs_Get ()
+{
+    CriticalSectionLocker CSL(CS);
+    return File_ExpandSubs_Backup?true:false;
+}
+
+void MediaInfo_Config_MediaInfo::File_ExpandSubs_Update(void** Source)
+{
+    CriticalSectionLocker CSL(CS);
+    if (Source)
+        File_ExpandSubs_Source=*Source;
+    if (!File_ExpandSubs_Source)
+        return;
+    std::vector<std::vector<ZtringListList> >* Stream_More=(std::vector<std::vector<ZtringListList> >*)File_ExpandSubs_Source;
+    std::vector<std::vector<ZtringListList> >* Backup=(std::vector<std::vector<ZtringListList> >*)File_ExpandSubs_Backup;
+
+    //Reset if needed
+    if (File_ExpandSubs_Backup && !Backup->empty())
+    {
+        *Stream_More=*Backup;
+        Backup->clear();
+    }
+    if (!File_ExpandSubs_Backup)
+        return;
+
+    //Backup
+    *Backup=*Stream_More;
+
+    //Sub-elements
+    struct sub
+    {
+        Ztring up;
+        Ztring down;
+    };
+    const size_t Subs_Size=2;
+    sub Subs[Subs_Size]={ {" Groups", "Group"} , {" Substreams", "Substream"} };
+    for (size_t Subs_Pos=0; Subs_Pos<Subs_Size; Subs_Pos++)
+        for (size_t StreamKind=Stream_General; StreamKind<Stream_Max; StreamKind++)
+            for (size_t StreamPos=0; StreamPos<(*Stream_More)[StreamKind].size(); StreamPos++)
+            {
+                ZtringListList Temp;
+                size_t Pos_Max=(*Stream_More)[StreamKind][StreamPos].size();
+                for (size_t Pos=0; Pos<Pos_Max; Pos++)
+                    if ((*Stream_More)[StreamKind][StreamPos][Pos].size()>Info_Name_Text)
+                    {
+                        Ztring& Name=(*Stream_More)[StreamKind][StreamPos][Pos][Info_Name];
+
+                        // Tree
+                        if (Name.find(Subs[Subs_Pos].up)!=string::npos)
+                        {
+                            size_t SpacesCount=1;
+                            size_t SpacesTestPos=Name.size()-Subs[Subs_Pos].up.size();
+                            while (SpacesTestPos && (SpacesTestPos=Name.rfind(__T(' '), SpacesTestPos-1))!=string::npos)
+                                SpacesCount++;
+                            ZtringList L;
+                            L.Separator_Set(0, __T(" / "));
+                            L.Write((*Stream_More)[StreamKind][StreamPos][Pos][Info_Text]);
+                            for (size_t i=0; i<L.size(); i++)
+                            {
+                                Ztring ToSearch=Subs[Subs_Pos].down+L[i];
+                                for (size_t j=Pos+1; j<(*Stream_More)[StreamKind][StreamPos].size(); j++)
+                                {
+                                    Ztring& A=(*Stream_More)[StreamKind][StreamPos][j][Info_Name];
+                                    if (A==ToSearch)
+                                    {
+                                        while (j<(*Stream_More)[StreamKind][StreamPos].size() && (*Stream_More)[StreamKind][StreamPos][j][Info_Name].rfind(ToSearch, ToSearch.size())==0)
+                                        {
+                                            Temp.push_back((*Stream_More)[StreamKind][StreamPos][j]);
+                                            Temp.back()[Info_Name].insert(0, SpacesCount, __T(' '));
+                                            j++;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        else
+                            Temp.push_back((*Stream_More)[StreamKind][StreamPos][Pos]);
+
+                    }
+                (*Stream_More)[StreamKind][StreamPos]=Temp;
+            }
+
+    //Sub-elements
+    for (size_t StreamKind=Stream_General; StreamKind<Stream_Max; StreamKind++)
+        for (size_t StreamPos=0; StreamPos<(*Stream_More)[StreamKind].size(); StreamPos++)
+            for (size_t Pos=0; Pos<(*Stream_More)[StreamKind][StreamPos].size(); Pos++)
+                if ((*Stream_More)[StreamKind][StreamPos][Pos].size()>Info_Name_Text)
+                {
+                    // Text
+                    Ztring Name=(*Stream_More)[StreamKind][StreamPos][Pos][Info_Name];
+                    size_t Spaces=0;
+                    for (;;)
+                    {
+                        size_t i=Name.find(__T(' '), Spaces);
+                        if (i==(size_t)-1)
+                            break;
+                        Name.erase(Spaces, i-Spaces);
+                        (*Stream_More)[StreamKind][StreamPos][Pos][Info_Name_Text]=Name;
+                        Spaces++;
+                    }
+                }
 }
 
 //---------------------------------------------------------------------------
