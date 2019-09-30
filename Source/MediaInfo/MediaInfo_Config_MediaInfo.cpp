@@ -1561,6 +1561,13 @@ void MediaInfo_Config_MediaInfo::File_ExpandSubs_Update(void** Source)
                                         while (j<(*Stream_More)[StreamKind][StreamPos].size() && (*Stream_More)[StreamKind][StreamPos][j][Info_Name].rfind(ToSearch, ToSearch.size())==0)
                                         {
                                             Temp.push_back((*Stream_More)[StreamKind][StreamPos][j]);
+                                            /*
+                                            if (Temp.back()[Info_Name]==ToSearch)
+                                            {
+                                                Temp.back()[Info_Name]=Subs[Subs_Pos].down;
+                                                Temp.back()[Info_Name_Text]=Subs[Subs_Pos].down;
+                                            }
+                                            */
                                             Temp.back()[Info_Name].insert(0, SpacesCount, __T(' '));
                                             j++;
                                         }
@@ -1584,14 +1591,29 @@ void MediaInfo_Config_MediaInfo::File_ExpandSubs_Update(void** Source)
                     // Text
                     Ztring Name=(*Stream_More)[StreamKind][StreamPos][Pos][Info_Name];
                     size_t Spaces=0;
+                    size_t i=0;
                     for (;;)
                     {
-                        size_t i=Name.find(__T(' '), Spaces);
-                        if (i==(size_t)-1)
+                        size_t j=Name.find(__T(' '), i);
+                        if (j==(size_t)-1)
                             break;
-                        Name.erase(Spaces, i-Spaces);
-                        (*Stream_More)[StreamKind][StreamPos][Pos][Info_Name_Text]=Name;
+                        i=j+1;
                         Spaces++;
+                    }
+                    //if (Spaces)
+                    {
+                        Name.erase(0, i);
+                        int64u Number=0;
+                        if (!Name.empty() && Name[Name.size()-1]>=__T('0') && Name[Name.size()-1]<=__T('9')) //TODO: 10+
+                        {
+                            Number=Ztring(Name.substr(Name.size()-1)).To_int64u()+1;
+                            Name.resize(Name.size()-1);
+                        }
+                        Name=MediaInfoLib::Config.Language_Get(Name);
+                        Name.insert(0, Spaces, __T(' '));
+                        if (Number)
+                            Name+=__T(" #")+Ztring::ToZtring(Number);
+                        (*Stream_More)[StreamKind][StreamPos][Pos][Info_Name_Text]=Name;
                     }
                 }
 }

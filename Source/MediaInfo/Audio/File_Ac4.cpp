@@ -345,7 +345,7 @@ void File_Ac4::Streams_Fill()
                     Fill(Stream_Audio, 0, (P+" Loudness IntegratedLoudness_Level").c_str(), Ztring::ToZtring((L.loudrelgat-1024)/10.0, 1)+__T(" LKFS"));
                 if (L.loud_prac_type!=(int8u)-1 && L.loud_prac_type)
                 {
-                    Fill(Stream_Audio, 0, (P+" Loudness RegulationType").c_str(), Value(Ac4_loud_prac_type, L.loud_prac_type));
+                    Fill(Stream_Audio, 0, (P+" Loudness AudioLoudnessStandard").c_str(), Value(Ac4_loud_prac_type, L.loud_prac_type));
                     Fill(Stream_Audio, 0, (P+" Loudness RealtimeLoudnessCorrected").c_str(), L.b_loudcorr_type?"Yes":"No");
                     Fill(Stream_Audio, 0, (P+" Loudness DialogueCorrected").c_str(), L.loud_dialgate_prac_type!=(int8u)-1?"Yes":"No");
                 }
@@ -354,7 +354,7 @@ void File_Ac4::Streams_Fill()
                 if (L.max_loudmntry!=(int16u)-1)
                     Fill(Stream_Audio, 0, (P+" Loudness MaximumMomentaryLoudness").c_str(), Ztring::ToZtring((L.max_loudmntry-1024)/10.0, 1)+__T(" LUFS"));
                 if (L.lra!=(int16u)-1)
-                    Fill(Stream_Audio, 0, (P+" Loudness LoudnessRange").c_str(), Ztring::ToZtring(L.lra/10.0, 1).To_UTF8()+" LU ("+Value(Ac4_lra_prac_type, L.lra_prac_type)+')');
+                    Fill(Stream_Audio, 0, (P+" Loudness Loudness_Range").c_str(), Ztring::ToZtring(L.lra/10.0, 1).To_UTF8()+" LU ("+Value(Ac4_lra_prac_type, L.lra_prac_type)+')');
             }
         }
         {
