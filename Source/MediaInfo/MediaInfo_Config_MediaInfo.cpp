@@ -1515,72 +1515,73 @@ void MediaInfo_Config_MediaInfo::File_ExpandSubs_Update(void** Source)
         *Stream_More=*Backup;
         Backup->clear();
     }
-    if (!File_ExpandSubs_Backup)
-        return;
-
-    //Backup
-    *Backup=*Stream_More;
-
-    //Sub-elements
-    struct sub
+    
+    if (File_ExpandSubs_Backup)
     {
-        Ztring up;
-        Ztring down;
-    };
-    const size_t Subs_Size=2;
-    sub Subs[Subs_Size]={ {" Groups", "Group"} , {" Substreams", "Substream"} };
-    for (size_t Subs_Pos=0; Subs_Pos<Subs_Size; Subs_Pos++)
-        for (size_t StreamKind=Stream_General; StreamKind<Stream_Max; StreamKind++)
-            for (size_t StreamPos=0; StreamPos<(*Stream_More)[StreamKind].size(); StreamPos++)
-            {
-                ZtringListList Temp;
-                size_t Pos_Max=(*Stream_More)[StreamKind][StreamPos].size();
-                for (size_t Pos=0; Pos<Pos_Max; Pos++)
-                    if ((*Stream_More)[StreamKind][StreamPos][Pos].size()>Info_Name_Text)
-                    {
-                        Ztring& Name=(*Stream_More)[StreamKind][StreamPos][Pos][Info_Name];
+        //Backup
+        *Backup=*Stream_More;
 
-                        // Tree
-                        if (Name.find(Subs[Subs_Pos].up)!=string::npos)
+        //Sub-elements
+        struct sub
+        {
+            Ztring up;
+            Ztring down;
+        };
+        const size_t Subs_Size=2;
+        sub Subs[Subs_Size]={ {" Groups", "Group"} , {" Substreams", "Substream"} };
+        for (size_t Subs_Pos=0; Subs_Pos<Subs_Size; Subs_Pos++)
+            for (size_t StreamKind=Stream_General; StreamKind<Stream_Max; StreamKind++)
+                for (size_t StreamPos=0; StreamPos<(*Stream_More)[StreamKind].size(); StreamPos++)
+                {
+                    ZtringListList Temp;
+                    size_t Pos_Max=(*Stream_More)[StreamKind][StreamPos].size();
+                    for (size_t Pos=0; Pos<Pos_Max; Pos++)
+                        if ((*Stream_More)[StreamKind][StreamPos][Pos].size()>Info_Name_Text)
                         {
-                            size_t SpacesCount=1;
-                            size_t SpacesTestPos=Name.size()-Subs[Subs_Pos].up.size();
-                            while (SpacesTestPos && (SpacesTestPos=Name.rfind(__T(' '), SpacesTestPos-1))!=string::npos)
-                                SpacesCount++;
-                            ZtringList L;
-                            L.Separator_Set(0, __T(" / "));
-                            L.Write((*Stream_More)[StreamKind][StreamPos][Pos][Info_Text]);
-                            for (size_t i=0; i<L.size(); i++)
+                            Ztring& Name=(*Stream_More)[StreamKind][StreamPos][Pos][Info_Name];
+
+                            // Tree
+                            if (Name.find(Subs[Subs_Pos].up)!=string::npos)
                             {
-                                Ztring ToSearch=Subs[Subs_Pos].down+L[i];
-                                for (size_t j=Pos+1; j<(*Stream_More)[StreamKind][StreamPos].size(); j++)
+                                size_t SpacesCount=1;
+                                size_t SpacesTestPos=Name.size()-Subs[Subs_Pos].up.size();
+                                while (SpacesTestPos && (SpacesTestPos=Name.rfind(__T(' '), SpacesTestPos-1))!=string::npos)
+                                    SpacesCount++;
+                                ZtringList L;
+                                L.Separator_Set(0, __T(" / "));
+                                L.Write((*Stream_More)[StreamKind][StreamPos][Pos][Info_Text]);
+                                for (size_t i=0; i<L.size(); i++)
                                 {
-                                    Ztring& A=(*Stream_More)[StreamKind][StreamPos][j][Info_Name];
-                                    if (A==ToSearch)
+                                    Ztring ToSearch=Subs[Subs_Pos].down+L[i];
+                                    for (size_t j=Pos+1; j<(*Stream_More)[StreamKind][StreamPos].size(); j++)
                                     {
-                                        while (j<(*Stream_More)[StreamKind][StreamPos].size() && (*Stream_More)[StreamKind][StreamPos][j][Info_Name].rfind(ToSearch, ToSearch.size())==0)
+                                        Ztring& A=(*Stream_More)[StreamKind][StreamPos][j][Info_Name];
+                                        if (A==ToSearch)
                                         {
-                                            Temp.push_back((*Stream_More)[StreamKind][StreamPos][j]);
-                                            /*
-                                            if (Temp.back()[Info_Name]==ToSearch)
+                                            while (j<(*Stream_More)[StreamKind][StreamPos].size() && (*Stream_More)[StreamKind][StreamPos][j][Info_Name].rfind(ToSearch, ToSearch.size())==0)
                                             {
-                                                Temp.back()[Info_Name]=Subs[Subs_Pos].down;
-                                                Temp.back()[Info_Name_Text]=Subs[Subs_Pos].down;
+                                                Temp.push_back((*Stream_More)[StreamKind][StreamPos][j]);
+                                                /*
+                                                if (Temp.back()[Info_Name]==ToSearch)
+                                                {
+                                                    Temp.back()[Info_Name]=Subs[Subs_Pos].down;
+                                                    Temp.back()[Info_Name_Text]=Subs[Subs_Pos].down;
+                                                }
+                                                */
+                                                Temp.back()[Info_Name].insert(0, SpacesCount, __T(' '));
+                                                j++;
                                             }
-                                            */
-                                            Temp.back()[Info_Name].insert(0, SpacesCount, __T(' '));
-                                            j++;
                                         }
                                     }
                                 }
                             }
-                        }
-                        else
-                            Temp.push_back((*Stream_More)[StreamKind][StreamPos][Pos]);
+                            else
+                                Temp.push_back((*Stream_More)[StreamKind][StreamPos][Pos]);
 
-                    }
-                (*Stream_More)[StreamKind][StreamPos]=Temp;
-            }
+                        }
+                    (*Stream_More)[StreamKind][StreamPos]=Temp;
+                }
+    }
 
     //Sub-elements
     for (size_t StreamKind=Stream_General; StreamKind<Stream_Max; StreamKind++)
