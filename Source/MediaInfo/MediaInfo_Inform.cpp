@@ -654,8 +654,13 @@ Ztring MediaInfo_Internal::Inform (stream_t StreamKind, size_t StreamPos, bool I
                 #if defined(MEDIAINFO_HTML_YES)
                 if (HTML)
                 {
-                    Retour+=__T("  <tr>\n    <td style=\"white-space: pre;\"><i>");
-                    Retour+=Nom;
+                    size_t Level=Nom.find_first_not_of(__T(" "));
+                    Ztring Prefix;
+                    for (size_t Pos=0; Pos<Level; Pos++)
+                        Prefix+=__T("&nbsp;");
+
+                    Retour+=__T("  <tr>\n    <td><i>");
+                    Retour+=Prefix+Nom.TrimLeft();
                     Retour+=__T(" :</i></td>\n    <td colspan=\"3\">");
                     Retour+=Valeur;
                     Retour+=__T("</td>\n  </tr>");
