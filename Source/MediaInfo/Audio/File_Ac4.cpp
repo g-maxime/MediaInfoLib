@@ -250,14 +250,52 @@ static const sized_array_string Ac4_preferred_dmx_method=
 "Pro Logic II",
 };
 
+static const sized_array_string Ac4_pre_dmixtyp_2ch=
+{
+(const char*)4,
+"",
+"LoRo",
+"Pro Logic",
+"Pro Logic II",
+};
+
+static const sized_array_string Ac4_phase90_info_2ch=
+{
+(const char*)3,
+"",
+"Applied",
+"Not applied",
+};
+
+static const sized_array_string Ac4_pre_dmixtyp_5ch=
+{
+(const char*)4,
+"Pro Logic IIx",
+"Pro Logic IIx Movie",
+"Pro Logic IIx Music",
+"Pro Logic IIz",
+};
+
 static const sized_array_string Ac4_phase90_info_mc=
 {
 (const char*)3,
 "",
-"Undergone",
-"Not undergone",
+"Applied",
+"Not applied",
 };
 
+static const sized_array_string Ac4_de_channel_config=
+{
+(const char*)8,
+"",
+"M",
+"R",
+"R C",
+"L",
+"L C",
+"L R",
+"L R C",
+};
 
 //---------------------------------------------------------------------------
 void File_Ac4::Streams_Fill()
@@ -294,6 +332,7 @@ void File_Ac4::Streams_Fill()
         const presentation& Presentation_Current=Presentations[p];
         string Language;
         string Text;
+        int8u ch_mode=0;//TODO pres_ch_mode
         for (size_t g=0; g<Presentation_Current.substream_group_info_specifiers.size(); g++)
         {
             const group& Group=Groups[Presentation_Current.substream_group_info_specifiers[g]];
@@ -308,12 +347,15 @@ void File_Ac4::Streams_Fill()
                 const group_substream& Substream=Group.Substreams[s];
                 if (Substream.ch_mode!=(int8u)-1)
                 {
-                    if (!Text.empty())
-                        Text += " / "; //TODO pres_ch_mode
-                    Text+=Value(Ac4_ch_mode, Substream.ch_mode);
+                    //if (!Text.empty())
+                    //    Text += " / "; //TODO pres_ch_mode
+                    //Text+=Value(Ac4_ch_mode, Substream.ch_mode);
+                    if (ch_mode<Substream.ch_mode)
+                        ch_mode=Substream.ch_mode; //TODO pres_ch_mode
                 }
             }
         }
+        Text+=Value(Ac4_ch_mode, ch_mode);
 
         string Summary=Text;
         if (!Summary.empty())
@@ -322,7 +364,7 @@ void File_Ac4::Streams_Fill()
         if (!Language.empty())
         {
             Summary+=" (";
-            Summary+=Language;
+            Summary+=MediaInfoLib::Config.Language_Get(Ztring().From_UTF8("Language_"+Language)).To_UTF8();;
             Summary+=')';
         }
 
@@ -331,7 +373,12 @@ void File_Ac4::Streams_Fill()
         if (Presentation_Current.LoudnessInfo.dialnorm_bits!=(int8u)-1) //TODO: not LoudnessInfo
             Fill(Stream_Audio, 0, (P+" DialogueNormalization").c_str(), -0.25*Presentation_Current.LoudnessInfo.dialnorm_bits, 2);
         if (!Language.empty())
+        {
             Fill(Stream_Audio, 0, (P+" Language").c_str(), Language);
+            Fill(Stream_Audio, 0, (P+" Language/String").c_str(), MediaInfoLib::Config.Language_Get(Ztring().From_UTF8("Language_"+Language)));
+            Fill_SetOptions(Stream_Audio, 0, (P+" Language").c_str(), "N NTY");
+            Fill_SetOptions(Stream_Audio, 0, (P+" Language/String").c_str(), "Y NTN");
+        }
         if (Presentation_Current.b_multi_pid_PresentAndValue!=(int8u)-1)
             Fill(Stream_Audio, 0, (P+" MultipleStream").c_str(), Presentation_Current.b_multi_pid_PresentAndValue?"Yes":"No");
         {
@@ -402,11 +449,12 @@ void File_Ac4::Streams_Fill()
 
         for (size_t s=0; s<Presentation_Current.substream_group_info_specifiers.size(); s++)
         {
-            Fill(Stream_Audio, 0, (P+" Groups").c_str(), Presentation_Current.substream_group_info_specifiers[s]);
+            Fill(Stream_Audio, 0, (P+" GroupIDs").c_str(), Presentation_Current.substream_group_info_specifiers[s]);
         }
     }
     for (size_t g=0; g<Groups.size(); g++)
     {
+        string G=Ztring(__T("Group")+Ztring::ToZtring(g)).To_UTF8();
         const group& Group=Groups[g];
         string Summary;
         for (size_t p=0; p<Presentations.size(); p++)
@@ -430,21 +478,26 @@ void File_Ac4::Streams_Fill()
         if (!Group.ContentInfo.language_tag_bytes.empty())
         {
             Summary+=" (";
-            Summary+=Group.ContentInfo.language_tag_bytes;
+            Summary+=MediaInfoLib::Config.Language_Get(Ztring().From_UTF8("Language_"+Group.ContentInfo.language_tag_bytes)).To_UTF8();
             Summary+=')';
         }
         Fill(Stream_Audio, 0, Ztring(__T("Group")+Ztring::ToZtring(g)).To_UTF8().c_str(), Summary);
-        if (!Group.ContentInfo.language_tag_bytes.empty())
-            Fill(Stream_Audio, 0, Ztring(__T("Group")+Ztring::ToZtring(g)+__T(" Language")).To_UTF8().c_str(), Group.ContentInfo.language_tag_bytes);
         if (Group.ContentInfo.content_classifier!=(int8u)-1)
-            Fill(Stream_Audio, 0, Ztring(__T("Group")+Ztring::ToZtring(g)+__T(" Classifier")).To_UTF8().c_str(), Value(Ac4_content_classifier, Group.ContentInfo.content_classifier));
-        Fill(Stream_Audio, 0, Ztring(__T("Group")+Ztring::ToZtring(g)+__T(" ChannelCoded")).To_UTF8().c_str(), Group.b_channel_coded?"Yes":"No");
-        Fill(Stream_Audio, 0, Ztring(__T("Group")+Ztring::ToZtring(g)+__T(" NumberOfSubstreams")).To_UTF8().c_str(), Group.Substreams.size());
+            Fill(Stream_Audio, 0, (G+" Classifier").c_str(), Value(Ac4_content_classifier, Group.ContentInfo.content_classifier));
+        if (!Group.ContentInfo.language_tag_bytes.empty())
+        {
+            Fill(Stream_Audio, 0, (G+" Language").c_str(), Group.ContentInfo.language_tag_bytes);
+            Fill(Stream_Audio, 0, (G+" Language/String").c_str(), MediaInfoLib::Config.Language_Get(Ztring().From_UTF8("Language_"+Group.ContentInfo.language_tag_bytes)));
+            Fill_SetOptions(Stream_Audio, 0, (G+" Language").c_str(), "N NTY");
+            Fill_SetOptions(Stream_Audio, 0, (G+" Language/String").c_str(), "Y NTN");
+        }
+        Fill(Stream_Audio, 0, (G+" ChannelCoded").c_str(), Group.b_channel_coded?"Yes":"No");
+        Fill(Stream_Audio, 0, (G+" NumberOfSubstreams").c_str(), Group.Substreams.size());
         for (size_t s=0; s<Group.Substreams.size(); s++)
         {
             const group_substream& Substream=Group.Substreams[s];
             if (Substream.ch_mode!=(int8u)-1)
-                Fill(Stream_Audio, 0, Ztring(__T("Group")+Ztring::ToZtring(g)+__T(" Substreams")).To_UTF8().c_str(), Substream.substream_index);
+                Fill(Stream_Audio, 0, (G+" SubstreamIDs").c_str(), Substream.substream_index);
         }
     }
     for (map<int8u, audio_substream>::iterator Substream_Info=AudioSubstreams.begin(); Substream_Info!=AudioSubstreams.end(); Substream_Info++)
@@ -481,12 +534,37 @@ void File_Ac4::Streams_Fill()
             Fill(Stream_Audio, 0, (S+" TruePeak").c_str(), (Substream_Info->second.LoudnessInfo.truepk-1024)/10.0, 1);
         {
             const preprocessing& P=Substream_Info->second.Preprocessing;
-            if (P.phase90_info_mc!=(int8u)-1)
+            if (P.pre_dmixtyp_2ch!=(int8u)-1 || P.pre_dmixtyp_5ch!=(int8u)-1 || P.phase90_info_mc!=(int8u)-1)
             {
                 Fill(Stream_Audio, 0, (S+" Preprocessing").c_str(), "Yes");
-                Fill(Stream_Audio, 0, (S+" Preprocessing Phase90FilterInfo").c_str(), Value(Ac4_phase90_info_mc, P.phase90_info_mc));
-                Fill(Stream_Audio, 0, (S+" Preprocessing SurroundAttenuationKnown").c_str(), P.b_surround_attenuation_known?"Yes":"No");
-                Fill(Stream_Audio, 0, (S+" Preprocessing LfeAttenuationKnown").c_str(), P.b_lfe_attenuation_known?"Yes":"No");
+                if (P.pre_dmixtyp_2ch!=(int8u)-1)
+                {
+                    Fill(Stream_Audio, 0, (S+" Preprocessing PreviousMixType2ch").c_str(), Value(Ac4_pre_dmixtyp_2ch, P.pre_dmixtyp_2ch));
+                    Fill(Stream_Audio, 0, (S+" Preprocessing Phase90FilterInfo2ch").c_str(), Value(Ac4_phase90_info_2ch, P.phase90_info_2ch));
+                }
+                if (P.pre_dmixtyp_5ch!=(int8u)-1)
+                {
+                    Fill(Stream_Audio, 0, (S+" Preprocessing PreviousDownmixType5ch").c_str(), Value(Ac4_pre_dmixtyp_5ch, P.pre_dmixtyp_5ch));
+                }
+                if (P.phase90_info_mc!=(int8u)-1)
+                {
+                    Fill(Stream_Audio, 0, (S+" Preprocessing Phase90FilterInfo").c_str(), Value(Ac4_phase90_info_mc, P.phase90_info_mc));
+                    Fill(Stream_Audio, 0, (S+" Preprocessing SurroundAttenuationKnown").c_str(), P.b_surround_attenuation_known?"Yes":"No");
+                    Fill(Stream_Audio, 0, (S+" Preprocessing LfeAttenuationKnown").c_str(), P.b_lfe_attenuation_known?"Yes":"No");
+                }
+            }
+        }
+        {
+            const de_info& D=Substream_Info->second.DeInfo;
+            if (D.b_de_data_present)
+            {
+                Fill(Stream_Audio, 0, (S+" DialogueEnhancement").c_str(), "Yes");
+                Fill(Stream_Audio, 0, (S+" DialogueEnhancement Enabled").c_str(), "Yes");
+                if (D.Config.de_method!=(int8u)-1)
+                {
+                    Fill(Stream_Audio, 0, (S+" Preprocessing DialogueEnhancement MaxGain").c_str(), Ztring::ToZtring((D.Config.de_max_gain+1)*3)+__T(" dB"));
+                    Fill(Stream_Audio, 0, (S+" Preprocessing DialogueEnhancement ChannelConfiguration").c_str(), Value(Ac4_de_channel_config, D.Config.de_channel_config));
+                }
             }
         }
     }
@@ -2209,8 +2287,8 @@ void File_Ac4::basic_metadata(loudness_info& L, preprocessing& P, int16u channel
         if (ch_mode==1) // stereo
         {
             TEST_SB_SKIP(                                       "b_prev_dmx_info");
-                Skip_S1(3,                                      "pre_dmixtyp_2ch");
-                Skip_S1(2,                                      "phase90_info_2ch");
+                Get_S1 (3, P.pre_dmixtyp_2ch,                   "pre_dmixtyp_2ch");
+                Get_S1 (2, P.phase90_info_2ch,                  "phase90_info_2ch");
             TEST_SB_END();
         }
         else if (ch_mode>1)
@@ -2248,7 +2326,7 @@ void File_Ac4::basic_metadata(loudness_info& L, preprocessing& P, int16u channel
             if (ch_mode==3 || ch_mode==4) // 5.x
             {
                 TEST_SB_SKIP(                                   "b_predmixtyp_5ch");
-                    Skip_S1(3,                                  "pre_dmixtyp_5ch");
+                    Get_S1 (3, P.pre_dmixtyp_5ch,               "pre_dmixtyp_5ch");
                 TEST_SB_END();
 
                 TEST_SB_SKIP(                                   "b_preupmixtyp_5ch");
@@ -2383,9 +2461,9 @@ void File_Ac4::dialog_enhancement(de_info& Info, int16u channel_mode, bool b_ifr
     int8u ch_mode=Channel_Mode_to_Ch_Mode(channel_mode);
 
     Element_Begin1("dialog_enhancement");
-    TEST_SB_SKIP(                                               "b_de_data_present");
+    TEST_SB_GET (Info.b_de_data_present,                        "b_de_data_present");
         if (!b_iframe)
-            Get_SB(b_de_config_flag,                             "b_de_config_flag");
+            Get_SB (b_de_config_flag,                           "b_de_config_flag");
 
         if (b_de_config_flag)
             dialog_enhancement_config(Info);
@@ -2393,7 +2471,7 @@ void File_Ac4::dialog_enhancement(de_info& Info, int16u channel_mode, bool b_ifr
         dialog_enhancement_data(Info, b_iframe, 0);
         if (ch_mode==13 || ch_mode==14)
         {
-            TEST_SB_SKIP("b_de_simulcast");
+            TEST_SB_SKIP(                                       "b_de_simulcast");
                 dialog_enhancement_data(Info, b_iframe, 1);
             TEST_SB_END();
         }
@@ -2404,16 +2482,11 @@ void File_Ac4::dialog_enhancement(de_info& Info, int16u channel_mode, bool b_ifr
 //---------------------------------------------------------------------------
 void File_Ac4::dialog_enhancement_config(de_info& Info)
 {
-    int8u de_method, de_max_gain, de_channel_config;
     Element_Begin1("de_config");
-    Get_S1(2, de_method,                                        "de_method");
-    Get_S1(2, de_max_gain,                                      "de_max_gain");
-    Get_S1(3, de_channel_config,                                "de_channel_config");
+    Get_S1 (2, Info.Config.de_method,                           "de_method");
+    Get_S1 (2, Info.Config.de_max_gain,                         "de_max_gain");
+    Get_S1 (3, Info.Config.de_channel_config,                   "de_channel_config");
     Element_End0();
-
-    Info.Config.de_method=de_method;
-    Info.Config.de_max_gain=de_max_gain;
-    Info.Config.de_channel_config=de_channel_config;
 }
 
 //---------------------------------------------------------------------------
