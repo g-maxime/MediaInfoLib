@@ -55,11 +55,16 @@ public :
 
     struct preprocessing
     {
+        int8u pre_dmixtyp_2ch;
+        int8u phase90_info_2ch;
+        int8u pre_dmixtyp_5ch;
         int8u phase90_info_mc;
         bool b_surround_attenuation_known;
         bool b_lfe_attenuation_known;
 
         preprocessing() :
+            pre_dmixtyp_2ch((int8u)-1),
+            pre_dmixtyp_5ch((int8u)-1),
             phase90_info_mc((int8u)-1)
         {}
     };
@@ -92,11 +97,20 @@ public :
         int8u de_method;
         int8u de_max_gain;
         int8u de_channel_config;
+
+        de_config() :
+            de_method((int8u)-1)
+        {}
     };
 
     struct de_info
     {
+        bool b_de_data_present;
         de_config Config;
+
+        de_info() :
+            b_de_data_present(false)
+        {}
     };
 
     struct dmx
