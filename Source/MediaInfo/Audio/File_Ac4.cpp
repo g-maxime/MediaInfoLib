@@ -562,8 +562,8 @@ void File_Ac4::Streams_Fill()
                 Fill(Stream_Audio, 0, (S+" DialogueEnhancement Enabled").c_str(), "Yes");
                 if (D.Config.de_method!=(int8u)-1)
                 {
-                    Fill(Stream_Audio, 0, (S+" Preprocessing DialogueEnhancement MaxGain").c_str(), Ztring::ToZtring((D.Config.de_max_gain+1)*3)+__T(" dB"));
-                    Fill(Stream_Audio, 0, (S+" Preprocessing DialogueEnhancement ChannelConfiguration").c_str(), Value(Ac4_de_channel_config, D.Config.de_channel_config));
+                    Fill(Stream_Audio, 0, (S+" DialogueEnhancement MaxGain").c_str(), Ztring::ToZtring((D.Config.de_max_gain+1)*3)+__T(" dB"));
+                    Fill(Stream_Audio, 0, (S+" DialogueEnhancement ChannelConfiguration").c_str(), Value(Ac4_de_channel_config, D.Config.de_channel_config));
                 }
             }
         }
@@ -866,6 +866,7 @@ void File_Ac4::ac4_toc()
         bitstream_version32+=3;
         bitstream_version=(int8u)bitstream_version32;
     }
+    Fill(Stream_Audio, 0, "bitstream_version", bitstream_version, 10, true);//TODO remove
     Get_S2 (10, sequence_counter,                               "sequence_counter");
     TEST_SB_SKIP(                                               "b_wait_frames");
         int8u wait_frames;
@@ -897,9 +898,10 @@ void File_Ac4::ac4_toc()
     TESTELSE_SB_ELSE(                                           "b_single_presentation");
         TESTELSE_SB_SKIP(                                       "b_more_presentations");
             int32u n_presentations32;
-            Get_V4 (2, n_presentations32,                       "n_presentations");
+            Get_V4 (2, n_presentations32,                       "n_presentations_minus2");
             n_presentations32+=2;
             n_presentations=(int8u)n_presentations32;
+            Param_Info1(n_presentations);
         TESTELSE_SB_ELSE(                                       "b_more_presentations");
             n_presentations=0;
         TESTELSE_SB_END();
@@ -967,9 +969,12 @@ void File_Ac4::ac4_presentation_info()
             Get_V4(2, presentation_config32,                    "presentation_config");
             presentation_config+=presentation_config32;
         }
+        Param_Info1(Value(Ac4_presentation_config, presentation_config));
     }
 
-    Skip_VB(                                                    "presentation_version");
+    int8u presentation_version;
+    Get_VB (presentation_version,                               "presentation_version");
+    Fill(Stream_Audio, 0, "presentation_version", presentation_version, 10, true);//TODO remove
 
     if (!b_single_substream && presentation_config==6)
     {
@@ -1079,10 +1084,15 @@ void File_Ac4::ac4_presentation_v1_info()
             Get_V4(2, presentation_config32,                    "presentation_config");
             presentation_config+=presentation_config32;
         }
+        Param_Info1(Value(Ac4_presentation_config, presentation_config));
     }
 
     if (bitstream_version!=1)
-        Skip_VB(                                                "presentation_version");
+    {
+        int8u presentation_version;
+        Get_VB (presentation_version,                           "presentation_version");
+        Fill(Stream_Audio, 0, "presentation_version", presentation_version, 10, true);//TODO remove
+    }
 
     if (!b_single_substream_group && presentation_config==6)
     {
@@ -1244,7 +1254,7 @@ void File_Ac4::ac4_substream_info()
         }
 
         TEST_SB_SKIP(                                           "b_bitrate_info");
-            Skip_V4(3, 5, 4,                                    "bitrate_indicator");
+            Skip_V4(3, 5, 1,                                    "bitrate_indicator");
         TEST_SB_END();
         if (channel_mode >=122 && channel_mode <= 125)
             Skip_SB(                                            "add_ch_base");
@@ -1376,6 +1386,7 @@ void File_Ac4::ac4_hsf_ext_substream_info(bool b_substreams_present)
 //---------------------------------------------------------------------------
 void File_Ac4::ac4_substream_info_chan(bool sus_ver)
 {
+    Fill(Stream_Audio, 0, "sus_ver", sus_ver, 10, true);//TODO remove
     bool b_4_back_channels_present=false;
     int8u top_channels_present=0;
     int8u substream_index;
@@ -1401,7 +1412,7 @@ void File_Ac4::ac4_substream_info_chan(bool sus_ver)
     }
 
     TEST_SB_SKIP(                                               "b_bitrate_info");
-        Skip_V4(3, 5, 4,                                        "bitrate_indicator");
+        Skip_V4(3, 5, 1,                                        "bitrate_indicator");
     TEST_SB_END();
 
     if (channel_mode>=122 && channel_mode<=125)
@@ -1489,7 +1500,7 @@ void File_Ac4::ac4_substream_info_ajoc(bool b_substreams_present)
     }
 
     TEST_SB_SKIP(                                               "b_bitrate_info");
-        Skip_V4(3, 5, 4,                                        "bitrate_indicator");
+        Skip_V4(3, 5, 1,                                        "bitrate_indicator");
     TEST_SB_END();
 
     for (int8u Pos=0; Pos<frame_rate_factor; Pos++)
@@ -1570,7 +1581,7 @@ void File_Ac4::ac4_substream_info_obj(bool b_substreams_present)
     }
 
     TEST_SB_SKIP(                                               "b_bitrate_info");
-        Skip_V4(3, 5, 4,                                        "bitrate_indicator");
+        Skip_V4(3, 5, 1,                                        "bitrate_indicator");
     TEST_SB_END();
 
     for (int8u Pos=0; Pos<frame_rate_factor; Pos++)
@@ -1985,10 +1996,10 @@ void File_Ac4::oamd_common_data()
 void File_Ac4::ac4_substream(size_t Substream_Index)
 {
     int32u audio_size;
-    size_t Pos_Before=BS->Remain(), Pos_After;
 
     Element_Begin1("ac4_substream");
     BS_Begin();
+    size_t Pos_Before=Data_BS_Remain();
     Get_S4(15, audio_size,                                      "audio_size_value");
     TEST_SB_SKIP(                                               "b_more_bits");
         int32u audio_size32;
@@ -2001,8 +2012,7 @@ void File_Ac4::ac4_substream(size_t Substream_Index)
 
     metadata(Substream_Index);
 
-    Pos_After=BS->Remain();
-
+    size_t Pos_After=Data_BS_Remain();
     if (Pos_Before-Pos_After<(Substream_Size[Substream_Index]*8))
         Skip_BS((Substream_Size[Substream_Index]*8)-(Pos_Before-Pos_After), "remaining_substream_data");
     BS_End();
@@ -2120,7 +2130,7 @@ void File_Ac4::ac4_presentation_substream(size_t Substream_Index)
     }
 
     TEST_SB_SKIP(                                               "b_additional_data");
-        Get_S1(4, add_data_bytes,                               "add_data_bytes");
+        Get_S1(4, add_data_bytes,                               "add_data_bytes_minus1");
         add_data_bytes++;
         if (add_data_bytes==16)
         {
@@ -2147,7 +2157,14 @@ void File_Ac4::ac4_presentation_substream(size_t Substream_Index)
         drc_metadata_size_value+=(int16u)drc_metadata_size_value32<<5;
     TEST_SB_END();
 
+    size_t Pos_Before=Data_BS_Remain();
     drc_frame(Presentation.DrcInfo, Presentation.b_pres_ndot);
+    size_t Pos_After=Data_BS_Remain();
+    if (drc_metadata_size_value!=Pos_Before-Pos_After)
+    {
+        Fill(Stream_Audio, 0, "NOK", "drc_metadata", -1, true, true);//TODO remove
+        Element_Info1("Problem");
+    }
 
     if (Presentation.n_substream_groups>1)
     {
@@ -2178,8 +2195,16 @@ void File_Ac4::ac4_presentation_substream(size_t Substream_Index)
         TEST_SB_END();
     TEST_SB_END();
 
+    if (pres_ch_mode<=4 || BS->Remain()>=4) //TODO: remove this when parsing issue is understood
+    {
     custom_dmx_data(Presentation.Dmx, pres_ch_mode, pres_ch_mode_core, b_pres_4_back_channels_present, pres_top_channel_pairs, b_pres_has_lfe);
     loud_corr(pres_ch_mode, pres_ch_mode_core, false/* TODO: b_objects? */);
+    }
+    else
+    {
+        Fill(Stream_Audio, 0, "NOK", "presentation_substream", -1, true, true);//TODO remove
+
+    }
     size_t byte_align=BS->Remain()%8;
     if (byte_align)
         Skip_S1(byte_align,                                     "byte_align");
@@ -2203,10 +2228,22 @@ void File_Ac4::metadata(size_t Substream_Index)
         Skip_V4(3,                                              "tools_metadata_size"); //TODO
     TEST_SB_END();
 
+    if (false)
+    {
+        Skip_BS(tools_metadata_size,                            "tools_metadata");
+    }
+    else
+    {
+    size_t Pos_Before = Data_BS_Remain();
     // TODO:
     // if (!sus_ver)
     //    drc_frame(b_iframe);
     dialog_enhancement(AudioSubstreams[Substream_Index].DeInfo, AudioSubstreams[Substream_Index].Channel_Mode, true /* TODO: b_iframe */);
+    size_t Pos_After=Data_BS_Remain();
+    if (tools_metadata_size!=Pos_Before-Pos_After)
+        Fill(Stream_Audio, 0, "NOK", "tools_metadata", -1, true, true);//TODO remove
+        Element_Info1("Problem");
+    }
 
     TEST_SB_SKIP("b_emdf_payloads_substream");
         for (;;)
@@ -2337,9 +2374,9 @@ void File_Ac4::basic_metadata(loudness_info& L, preprocessing& P, int16u channel
             if (ch_mode>=5 && ch_mode<=12)
             {
                 TEST_SB_SKIP(                                   "b_upmixtyp_7ch");
-                    if (ch_mode==5) // TODO: include 3/2/2.1 and 3/4/0.1 ?
+                    if (ch_mode==5 || ch_mode==6)
                         Skip_S1(2,                              "pre_upmixtyp_3_4");
-                    else if (ch_mode==9)
+                    else if (ch_mode==9 || ch_mode==10)
                         Skip_SB(                                "pre_upmixtyp_3_2_2");
                     
                 TEST_SB_END();
@@ -3194,35 +3231,22 @@ void File_Ac4::dac4()
 //***************************************************************************
 
 //---------------------------------------------------------------------------
-void File_Ac4::Get_V4(int8u  Bits, int32u  &Info, const char* Name)
+void File_Ac4::Get_V4(int8u Bits, int32u& Info, const char* Name)
 {
-    Info = 0;
-
+    Info=0;
     #if MEDIAINFO_TRACE
         if (Trace_Activated)
         {
-            int8u Count = 0;
+            int8u Count=0;
+            for (;;)
             {
-                Info += BS->Get4(Bits);
-                Count += Bits;
+                Info+=BS->Get4(Bits);
+                Count+=Bits;
+                if (!BS->GetB())
+                    break;
+                Info<<=Bits;
+                Info+=(1<<Bits);
             }
-            while (BS->GetB());
-
-    /*
-            bool More;
-            do
-            {
-                Info += BS->Get4(Bits);
-                More=BS->GetB();
-                Count += Bits;
-                if (More)
-                {
-                    Info<<=Bits;
-                    Info+=(1<<Bits);
-                }
-            }
-            while(More);
-    */
 
             Param(Name, Info, Count);
             Param_Info(__T("(")+Ztring::ToZtring(Count)+__T(" bits)"));
@@ -3230,9 +3254,14 @@ void File_Ac4::Get_V4(int8u  Bits, int32u  &Info, const char* Name)
         else
     #endif //MEDIAINFO_TRACE
         {
-            do
-                Info += BS->Get4(Bits);
-            while (BS->GetB());
+            for (;;)
+            {
+                Info+=BS->Get4(Bits);
+                if (!BS->GetB())
+                    break;
+                Info<<=Bits;
+                Info+=(1<<Bits);
+            }
         }
 }
 
@@ -3242,23 +3271,30 @@ void File_Ac4::Skip_V4(int8u  Bits, const char* Name)
     #if MEDIAINFO_TRACE
         if (Trace_Activated)
         {
-            int8u Info = 0;
-            int8u Count = 0;
-            do
+            int32u Info=0;
+            int8u Count=0;
+            for (;;)
             {
-                Info += BS->Get4(Bits);
-                Count += Bits;
+                Info+=BS->Get4(Bits);
+                Count+=Bits;
+                if (!BS->GetB())
+                    break;
+                Info<<=Bits;
+                Info+=(1<<Bits);
             }
-            while (BS->GetB());
+
             Param(Name, Info, Count);
             Param_Info(__T("(")+Ztring::ToZtring(Count)+__T(" bits)"));
         }
         else
     #endif //MEDIAINFO_TRACE
         {
-            do
+            for (;;)
+            {
                 BS->Skip(Bits);
-            while (BS->GetB());
+                if (!BS->GetB())
+                    break;
+            }
         }
 }
 
