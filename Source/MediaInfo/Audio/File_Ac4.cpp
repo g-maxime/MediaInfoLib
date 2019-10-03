@@ -2530,8 +2530,10 @@ void File_Ac4::dialog_enhancement_config(de_info& Info)
 void File_Ac4::dialog_enhancement_data(de_info& Info, bool b_iframe, bool b_de_simulcast)
 {
     bool de_keep_pos_flag=false, de_keep_data_flag=false, de_ms_proc_flag=false;
+    ac4_huffman abs_table=Info.Config.de_method%2==0?de_hcb_abs_0:de_hcb_abs_1;
+    ac4_huffman diff_table=Info.Config.de_method%2==0?de_hcb_diff_0:de_hcb_diff_1;
 
-    int8u de_nr_channels=0;
+    int8u de_nr_channels=0, de_nr_bands=8;
     switch (Info.Config.de_channel_config)
     {
         case 0b1:
@@ -2571,10 +2573,20 @@ void File_Ac4::dialog_enhancement_data(de_info& Info, bool b_iframe, bool b_de_s
             if (de_nr_channels==2 && (Info.Config.de_method==0 || Info.Config.de_method==2))
                 Skip_SB(                                        "de_ms_proc_flag");
 
-            //for (int8u ch=0; ch<de_nr_channels-de_ms_proc_flag; ch++)
-            //{
-            //TODO:
-            //}
+            for (int8u ch=0; ch<de_nr_channels-de_ms_proc_flag; ch++)
+            {
+                if (b_iframe && ch==0)
+                {
+                    Huffman_Decode(abs_table, "de_par_code");
+                    for (int8u band=1; band<de_nr_bands; band++)
+                        Huffman_Decode(diff_table, "de_par_code");
+                }
+                else
+                {
+                    for (int8u band=0; band<de_nr_bands; band++)
+                        Huffman_Decode(diff_table, "de_par_code");
+                }
+            }
 
             if (Info.Config.de_method>=2)
                 Skip_S1(5,                                      "de_signal_contribution");
@@ -3633,6 +3645,23 @@ bool File_Ac4::Channel_Mode_Contains_VhlVhr(int16u Channel_Mode)
         return true;
 
     return false;
+}
+
+//---------------------------------------------------------------------------
+int16u File_Ac4::Huffman_Decode(const ac4_huffman& Table, const char* Name)
+{
+    int8u bit;
+    int16s index = 0;
+
+    Element_Begin1(Name);
+    while (index>=0)
+    {
+        Get_S1(1, bit,                                          "bit");
+        index=Table[index][bit];
+    }
+    Element_End0();
+
+    return index+64;
 }
 
 } //NameSpace
