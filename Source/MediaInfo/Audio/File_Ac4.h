@@ -18,6 +18,12 @@ namespace MediaInfoLib
 {
 typedef const int8s (*ac4_huffman)[2];
 
+struct variable_size
+{
+    int8u AddedSize;
+    int16u Value;
+};
+
 const int8s de_hcb_abs_0[31][2] = {
    {  3,   1},
    {  5,   2},
@@ -322,6 +328,7 @@ public :
         bool b_loudcorr_type;
         int16u loudrelgat;
         int16u loudspchgat;
+        int8u loudspchgat_dialgate_prac_type;
         int16u truepk;
         int16u lra;
         int8u lra_prac_type;
@@ -426,6 +433,13 @@ public :
             content_classifier((int8u)-1)
         {}
     };
+	
+	//TODO move
+	struct obj
+	{
+		bool b_dynamic_objects;
+		int8u n_objects_code;
+    };
 
     //Constructor/Destructor
     File_Ac4();
@@ -460,7 +474,7 @@ private :
     void ac4_hsf_ext_substream_info(bool b_substreams_present);
     void ac4_substream_info_chan(bool sus_ver);
     void ac4_substream_info_ajoc(bool b_substreams_present);
-    void ac4_substream_info_obj(bool b_substreams_present);
+    void ac4_substream_info_obj(obj& O, bool b_substreams_present);
     void ac4_presentation_substream_info();
     void presentation_config_ext_info(int8u presentation_config);
     void bed_dyn_obj_assignment(int8u n_signals);
@@ -478,9 +492,9 @@ private :
     void ac4_presentation_substream(size_t Substream_Index);
 
     void metadata(size_t Substream_Index);
-    void basic_metadata(loudness_info& LoudnessInfo, preprocessing& Preprocessing, int16u channel_mode, bool sus_ver);
-    void extended_metadata(int16u channel_mode, bool sus_ver);
-    void dialog_enhancement(de_info& Info, int16u channel_mode, bool b_iframe);
+    void basic_metadata(loudness_info& LoudnessInfo, preprocessing& Preprocessing, int8u ch_mode, bool sus_ver);
+    void extended_metadata(int8u ch_mode, bool sus_ver);
+    void dialog_enhancement(de_info& Info, int8u ch_mode, bool b_iframe);
     void dialog_enhancement_config(de_info& Info);
     void dialog_enhancement_data(de_info& Info, bool b_iframe, bool b_de_simulcast);
     void custom_dmx_data(dmx& Dmx, int8u pres_ch_mode, int8u pres_ch_mode_core, bool b_pres_4_back_channels_present, int8u pres_top_channel_pairs, bool b_pres_has_lfe);
@@ -510,7 +524,7 @@ private :
     void Get_V4(int8u Bits1, int8u Bits2, int8u Flag_Value, int32u &Info, const char* Name);
     void Skip_V4(int8u Bits1, int8u Bits2, int8u Flag_Value, const char* Name);
     void Get_V4(int8u Bits1, int8u Bits2, int8u Bits3, int8u Bits4, int32u  &Info, const char* Name);
-    void Get_V4(int8u Bits1, int8u Bits2, int8u Bits3, int8u Bits4, int8u Bits5, int8u Bits6, int32u  &Info, const char* Name);
+    void Get_V4(const variable_size* Bits, int8u &Info, const char* Name);
     void Get_VB (int8u  &Info, const char* Name);
     void Skip_VB(const char* Name);
 
@@ -582,7 +596,7 @@ private :
         content_info ContentInfo;
         bool Sus_Ver;
         bool Channel_Coded;
-        int16u Channel_Mode;
+        int8u ch_mode;
         loudness_info LoudnessInfo;
         de_info DeInfo;
         preprocessing Preprocessing;
@@ -592,14 +606,6 @@ private :
     //Utils
     bool CRC_Compute(size_t Size);
     int8u Superset(int8u Ch_Mode1, int8u Ch_Mode2);
-    int8u Channel_Mode_to_Ch_Mode(int16u Channel_Mode);
-    bool Channel_Mode_Contains_Lfe(int16u Channel_Mode);
-    bool Channel_Mode_Contains_C(int16u Channel_Mode);
-    bool Channel_Mode_Contains_Lr(int16u Channel_Mode);
-    bool Channel_Mode_Contains_LsRs(int16u Channel_Mode);
-    bool Channel_Mode_Contains_LrsRrs(int16u Channel_Mode);
-    bool Channel_Mode_Contains_LwRw(int16u Channel_Mode);
-    bool Channel_Mode_Contains_VhlVhr(int16u Channel_Mode);
     int16u Huffman_Decode(const ac4_huffman& Table, const char* Name);
 
     //Temp
