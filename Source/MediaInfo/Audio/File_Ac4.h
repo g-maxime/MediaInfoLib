@@ -488,12 +488,12 @@ private :
     void oamd_substream_info(bool b_substreams_present);
     void oamd_common_data();
 
-    void ac4_substream(size_t Substream_Index);
-    void ac4_presentation_substream(size_t Substream_Index);
+    void ac4_substream(size_t substream_index);
+    void ac4_presentation_substream(size_t substream_index, size_t Substream_Index);
 
     void metadata(size_t Substream_Index);
     void basic_metadata(loudness_info& LoudnessInfo, preprocessing& Preprocessing, int8u ch_mode, bool sus_ver);
-    void extended_metadata(int8u ch_mode, bool sus_ver);
+    void extended_metadata(bool b_associated, bool b_dialog, int8u ch_mode, bool sus_ver);
     void dialog_enhancement(de_info& Info, int8u ch_mode, bool b_iframe);
     void dialog_enhancement_config(de_info& Info);
     void dialog_enhancement_data(de_info& Info, bool b_iframe, bool b_de_simulcast);
@@ -541,6 +541,7 @@ private :
     //Presentations
     struct presentation
     {
+        int8u presentation_version;
         bool b_pres_ndot;
         bool b_alternative;
         int8u substream_index;
@@ -598,8 +599,10 @@ private :
         bool Channel_Coded;
         int8u ch_mode;
         loudness_info LoudnessInfo;
+        drc_info DrcInfo;
         de_info DeInfo;
         preprocessing Preprocessing;
+        bool b_iframe;
     };
     std::map<int8u, audio_substream> AudioSubstreams;
 
@@ -618,7 +621,6 @@ private :
     int8u frame_rate_factor;
     int8u frame_rate_fraction;
     int8u max_group_index;
-    int8u sus_ver;
     int8u n_substreams;
 
 
