@@ -134,6 +134,34 @@ string Value(const sized_array_string Array, size_t Pos)
     return Array[Pos];
 }
 
+static const int16u Ac4_fs_index[2]=
+{
+    44100,
+    48000,
+};
+
+static const variable_size Ac4_channel_mode[]=
+{
+    {17, 0}, // Total size
+    {1, 0b0},
+    {1, 0b10},
+    {2, 0b1100},
+    {0, 0b1101},
+    {0, 0b1110},
+    {3, 0b1111000},
+    {0, 0b1111001},
+    {0, 0b1111010},
+    {0, 0b1111011},
+    {0, 0b1111100},
+    {0, 0b1111101},
+    {1, 0b11111100},
+    {0, 0b11111101},
+    {1, 0b111111100},
+    {0, 0b111111101},
+    {0, 0b111111110},
+    {0, 0b111111111},
+};
+
 static const sized_array_string Ac4_content_classifier=
 {
 (const char*)8,
@@ -150,6 +178,28 @@ static const sized_array_string Ac4_content_classifier=
 static const sized_array_string Ac4_ch_mode=
 {
 (const char*)16,
+"Mono",
+"Stereo",
+"3.0",
+"5.0",
+"5.1",
+"7.0 3/4/0",
+"7.1 3/4/0",
+"7.0 5/2/0",
+"7.1 5/2/0",
+"7.0 3/2/2",
+"7.1 3/2/2",
+"7.0.4",
+"7.1.4",
+"9.0.4",
+"9.1.4",
+"22.2",
+};
+/*
+static const sized_array Ac4_ch_mode=
+{
+16,
+{
 "M",
 "L, R",
 "3.0",
@@ -167,6 +217,7 @@ static const sized_array_string Ac4_ch_mode=
 "9.1.4",
 "22.2",
 };
+*/
 
 static const sized_array_string Ac4_presentation_config=
 {
@@ -210,6 +261,15 @@ NULL,
 NULL,
 "Manual",
 "Consumer leveller",
+};
+
+static const sized_array_string Ac4_loud_dialgate_prac_type=
+{
+(const char*)4,
+NULL,
+"Automated C or L+R",
+"Automated individual front channels",
+"Manual",
 };
 
 static const sized_array_string Ac4_lra_prac_type=
@@ -296,6 +356,48 @@ static const sized_array_string Ac4_de_channel_config=
 "L R",
 "L R C",
 };
+
+//---------------------------------------------------------------------------
+static inline bool Channel_Mode_Contains_Lfe(int8u ch_mode)
+{
+    return (ch_mode==4 || ch_mode==6 || ch_mode==8 || ch_mode==10 || ch_mode==12 || ch_mode==14 || ch_mode==15)?true:false;
+}
+
+//---------------------------------------------------------------------------
+static inline bool Channel_Mode_Contains_C(int8u ch_mode)
+{
+    return (ch_mode==0 || (ch_mode>=2 && ch_mode<=15))?true:false;
+}
+
+//---------------------------------------------------------------------------
+static inline bool Channel_Mode_Contains_Lr(int8u ch_mode)
+{
+    return (ch_mode>=1 && ch_mode<=15)?true:false;
+}
+
+//---------------------------------------------------------------------------
+static inline bool Channel_Mode_Contains_LsRs(int8u ch_mode)
+{
+    return (ch_mode>=3 && ch_mode<=15)?true:false;
+}
+
+//---------------------------------------------------------------------------
+static inline bool Channel_Mode_Contains_LrsRrs(int8u ch_mode)
+{
+    return (ch_mode==5 || ch_mode==6 || (ch_mode>=11 && ch_mode<=15))?true:false;
+}
+
+//---------------------------------------------------------------------------
+static inline bool Channel_Mode_Contains_LwRw(int8u ch_mode)
+{
+    return (ch_mode==7 || ch_mode==8 || ch_mode==15)?true:false;
+}
+
+//---------------------------------------------------------------------------
+static inline bool Channel_Mode_Contains_VhlVhr(int8u ch_mode)
+{
+    return (ch_mode==9 || ch_mode==10)?true:false;
+}
 
 //---------------------------------------------------------------------------
 void File_Ac4::Streams_Fill()
@@ -387,14 +489,22 @@ void File_Ac4::Streams_Fill()
             {
                 Fill(Stream_Audio, 0, (P+" Loudness").c_str(), "Yes");
                 if (L.loudspchgat!=(int16u)-1)
-                    Fill(Stream_Audio, 0, (P+" Loudness IntegratedLoudness_Speech").c_str(), Ztring::ToZtring((L.loudspchgat-1024)/10.0, 1)+__T(" LKFS"));
+                {
+                    string IntegratedLoudness_Speech=Ztring::ToZtring((L.loudspchgat-1024)/10.0, 1).To_UTF8()+" LKFS";
+                    if (L.loud_dialgate_prac_type)
+                        IntegratedLoudness_Speech+=" ("+Value(Ac4_loud_dialgate_prac_type, L.loud_dialgate_prac_type)+')';
+                    Fill(Stream_Audio, 0, (P+" Loudness IntegratedLoudness_Speech").c_str(), IntegratedLoudness_Speech);
+                }
                 if (L.loudrelgat!=(int16u)-1)
                     Fill(Stream_Audio, 0, (P+" Loudness IntegratedLoudness_Level").c_str(), Ztring::ToZtring((L.loudrelgat-1024)/10.0, 1)+__T(" LKFS"));
                 if (L.loud_prac_type!=(int8u)-1 && L.loud_prac_type)
                 {
                     Fill(Stream_Audio, 0, (P+" Loudness AudioLoudnessStandard").c_str(), Value(Ac4_loud_prac_type, L.loud_prac_type));
                     Fill(Stream_Audio, 0, (P+" Loudness RealtimeLoudnessCorrected").c_str(), L.b_loudcorr_type?"Yes":"No");
-                    Fill(Stream_Audio, 0, (P+" Loudness DialogueCorrected").c_str(), L.loud_dialgate_prac_type!=(int8u)-1?"Yes":"No");
+                    string DialogueCorrected=L.loud_dialgate_prac_type!=(int8u)-1?"Yes":"No";
+                    if (L.loud_dialgate_prac_type!=(int8u)-1 && L.loud_dialgate_prac_type)
+                        DialogueCorrected+=" ("+Value(Ac4_loud_dialgate_prac_type, L.loud_dialgate_prac_type)+')';
+                    Fill(Stream_Audio, 0, (P+" Loudness DialogueCorrected").c_str(), DialogueCorrected);
                 }
                 if (L.truepk!=(int16u)-1)
                     Fill(Stream_Audio, 0, (P+" Loudness TruePeak").c_str(), Ztring::ToZtring((L.truepk-1024)/10.0, 1)+__T(" dBTP"));
@@ -788,6 +898,7 @@ void File_Ac4::raw_ac4_frame()
         Substreams_EndOffset+=Substream_Size[i];
     if (Substreams_EndOffset>Element_Size)
     {
+        Fill(Stream_Audio, 0, "NOK", "index", -1, true, true);//TODO remove
         Skip_XX(Element_Size-Element_Offset,                    "?");
         return;
     }
@@ -798,6 +909,7 @@ void File_Ac4::raw_ac4_frame()
         int8u substream_index=Presentations[i].substream_index;
         if (substream_index>=Substream_Size.size())
         {
+            Fill(Stream_Audio, 0, "NOK", "index", -1, true, true);//TODO remove
             Skip_XX(Element_Size-Element_Offset,                "?");
             return;
         }
@@ -810,7 +922,10 @@ void File_Ac4::raw_ac4_frame()
         ac4_presentation_substream(i);
 
         if (Element_Offset<Element_Size)
+        {
+            Fill(Stream_Audio, 0, "NOK", "presentation_substream too much", -1, true, true);//TODO remove
             Skip_XX(Element_Size-Element_Offset,                "?");
+        }
         Element_Size=Element_Size_Save;
     }
 
@@ -845,7 +960,10 @@ void File_Ac4::raw_ac4_frame()
         }
 
         if (Element_Offset<Element_Size)
+        {
+            Fill(Stream_Audio, 0, "NOK", "substream too much", -1, true, true);//TODO remove
             Skip_XX(Element_Size-Element_Offset,                "?");
+        }
         Element_Size=Element_Size_Save;
     }
 
@@ -874,8 +992,8 @@ void File_Ac4::ac4_toc()
         if (wait_frames)
             Skip_S1(2,                                          "br_code");
     TEST_SB_END();
-    Get_SB (   fs_index,                                        "fs_index");
-    Get_S1 (4, frame_rate_index,                                "frame_rate_index"); Param_Info1(Ac4_frame_rate[fs_index][frame_rate_index]);
+    Get_SB (   fs_index,                                        "fs_index"); Param_Info1(Ztring::ToZtring(Ac4_fs_index[fs_index])+__T(" Hz"));
+    Get_S1 (4, frame_rate_index,                                "frame_rate_index"); Param_Info2(Ac4_frame_rate[fs_index][frame_rate_index], " fps");
     Get_SB (   b_iframe_global,                                 "b_iframe_global");
     if (!b_iframe_global)
     {
@@ -909,12 +1027,12 @@ void File_Ac4::ac4_toc()
 
     payload_base=0;
     TEST_SB_SKIP(                                               "b_payload_base");
-        Get_S1 (7, payload_base,                                "payload_base_minus1");
+        Get_S1 (5, payload_base,                                "payload_base_minus1");
         payload_base++;
         if (payload_base==32)
         {
             int32u payload_base32;
-            Get_V4(3, payload_base32,                           "payload_base");
+            Get_V4 (3, payload_base32,                          "payload_base");
             payload_base32+=32;
             payload_base=(int8u)payload_base32;
         }
@@ -1233,18 +1351,18 @@ void File_Ac4::ac4_sgi_specifier()
 //---------------------------------------------------------------------------
 void File_Ac4::ac4_substream_info()
 {
-    int8u channel_mode, substream_index;
+    int8u ch_mode, substream_index;
     Element_Begin1(                                             "ac4_substream_info");
-        int32u channel_mode32;
         bool b_content_type;
         content_info ContentInfo;
-        Get_V4(1, 2, 4, 7, channel_mode32,                      "channel_mode");
-        if (channel_mode32==127)
+        Get_V4(Ac4_channel_mode, ch_mode,                       "channel_mode");
+        if (ch_mode==16)
         {
+            int32u channel_mode32;
             Get_V4(2, channel_mode32,                           "channel_mode");
-            channel_mode32+=127;
+            ch_mode+=(int8u)channel_mode32;
         }
-        channel_mode=(int8u)channel_mode32;
+        Param_Info1(Value(Ac4_ch_mode, ch_mode));
 
         if (fs_index)
         {
@@ -1256,7 +1374,7 @@ void File_Ac4::ac4_substream_info()
         TEST_SB_SKIP(                                           "b_bitrate_info");
             Skip_V4(3, 5, 1,                                    "bitrate_indicator");
         TEST_SB_END();
-        if (channel_mode >=122 && channel_mode <= 125)
+        if (ch_mode>=7 && ch_mode<=10)
             Skip_SB(                                            "add_ch_base");
 
         TEST_SB_GET(b_content_type,                             "b_content_type");
@@ -1280,7 +1398,7 @@ void File_Ac4::ac4_substream_info()
         audio_substream* AudioSubstream_Current=&AudioSubstreams[substream_index];
         AudioSubstream_Current->Sus_Ver=false;
         AudioSubstream_Current->Channel_Coded=true; /* TODO: correct value ? */
-        AudioSubstream_Current->Channel_Mode=channel_mode;
+        AudioSubstream_Current->ch_mode=ch_mode;
         if (b_content_type)
             AudioSubstream_Current->ContentInfo=ContentInfo;
     Element_End0();
@@ -1332,7 +1450,8 @@ void File_Ac4::ac4_substream_group_info()
             TESTELSE_SB_SKIP(                                   "b_ajoc");
                 ac4_substream_info_ajoc(b_substreams_present);
             TESTELSE_SB_ELSE(                                   "b_ajoc");
-                ac4_substream_info_obj(b_substreams_present);
+                obj Obj;
+				ac4_substream_info_obj(Obj, b_substreams_present);
             TESTELSE_SB_END();
             if (b_hsf_ext)
             {
@@ -1390,18 +1509,22 @@ void File_Ac4::ac4_substream_info_chan(bool sus_ver)
     bool b_4_back_channels_present=false;
     int8u top_channels_present=0;
     int8u substream_index;
-    int16u channel_mode;
+    int8u ch_mode;
     Element_Begin1(                                             "ac4_substream_info_chan");
-    int32u channel_mode32;
-    Get_V4(1, 2, 4, 7, 8, 9, channel_mode32,                    "channel_mode");
-    if (channel_mode32==0b111111111)
-        Skip_V4(2,                                              "channel_mode");
-    channel_mode=(int16u)channel_mode32;
-
-    if (channel_mode==0b11111100 || channel_mode==0b11111101 || channel_mode==0b111111100 || channel_mode==0b111111101)
+    Get_V4(Ac4_channel_mode, ch_mode,                           "channel_mode");
+    if (ch_mode==16)
     {
-        Get_SB(b_4_back_channels_present,                       "b_4_back_channels_present");
-        Get_S1(2, top_channels_present,                         "top_channels_present");
+        int32u channel_mode32;
+        Get_V4(2, channel_mode32,                               "channel_mode");
+        ch_mode+=(int8u)channel_mode32;
+    }
+    Param_Info1(Value(Ac4_ch_mode, ch_mode));
+
+    if (ch_mode>=11 && ch_mode<=14)
+    {
+        Get_SB (b_4_back_channels_present,                      "b_4_back_channels_present");
+        Skip_SB(                                                "b_centre_present");
+        Get_S1 (2, top_channels_present,                        "top_channels_present");
     }
 
     if (fs_index==1)
@@ -1415,7 +1538,7 @@ void File_Ac4::ac4_substream_info_chan(bool sus_ver)
         Skip_V4(3, 5, 1,                                        "bitrate_indicator");
     TEST_SB_END();
 
-    if (channel_mode>=122 && channel_mode<=125)
+    if (ch_mode>=7 && ch_mode<=10)
         Skip_SB(                                                "add_ch_base");
 
     for (int8u Pos=0; Pos<frame_rate_factor; Pos++)
@@ -1435,14 +1558,14 @@ void File_Ac4::ac4_substream_info_chan(bool sus_ver)
     audio_substream* AudioSubstream_Current=&AudioSubstreams[substream_index];
     AudioSubstream_Current->Sus_Ver=sus_ver;
     AudioSubstream_Current->Channel_Coded=true;
-    AudioSubstream_Current->Channel_Mode=channel_mode;
+    AudioSubstream_Current->ch_mode=ch_mode;
 
     if (Group_Current)
     {
         Group_Current->Substreams.resize(Group_Current->Substreams.size()+1);
         Group_Current->Substreams.back().substream_type=Type_Ac4_Substream;
         Group_Current->Substreams.back().substream_index=substream_index;
-        Group_Current->Substreams.back().ch_mode=Channel_Mode_to_Ch_Mode(channel_mode);
+        Group_Current->Substreams.back().ch_mode=ch_mode;
         switch (Group_Current->Substreams.back().ch_mode)
         {
             case 11:
@@ -1522,7 +1645,7 @@ void File_Ac4::ac4_substream_info_ajoc(bool b_substreams_present)
         audio_substream* AudioSubstream_Current=&AudioSubstreams[substream_index];
         AudioSubstream_Current->Sus_Ver=true;
         AudioSubstream_Current->Channel_Coded=false;
-        AudioSubstream_Current->Channel_Mode=(int16u)-1;
+        AudioSubstream_Current->ch_mode=(int8u)-1;
 
         if (Group_Current)
         {
@@ -1539,12 +1662,12 @@ void File_Ac4::ac4_substream_info_ajoc(bool b_substreams_present)
 }
 
 //---------------------------------------------------------------------------
-void File_Ac4::ac4_substream_info_obj(bool b_substreams_present)
+void File_Ac4::ac4_substream_info_obj(obj& O, bool b_substreams_present)
 {
     int8u substream_index;
     Element_Begin1(                                             "ac4_substream_info_obj");
-    Skip_S1(3,                                                  "n_objects_code");
-    TESTELSE_SB_SKIP(                                           "b_dynamic_objects");
+    Get_S1 (3, O.n_objects_code,                                "n_objects_code");
+    TESTELSE_SB_GET (O.b_dynamic_objects,                       "b_dynamic_objects");
         Skip_SB(                                                "b_lfe");
     TESTELSE_SB_ELSE(                                           "b_dynamic_objects");
         TESTELSE_SB_SKIP(                                       "b_bed_objects");
@@ -1603,7 +1726,7 @@ void File_Ac4::ac4_substream_info_obj(bool b_substreams_present)
         audio_substream* AudioSubstream_Current=&AudioSubstreams[substream_index];
         AudioSubstream_Current->Sus_Ver=true;
         AudioSubstream_Current->Channel_Coded=false;
-        AudioSubstream_Current->Channel_Mode=(int16u)-1;
+        AudioSubstream_Current->ch_mode=(int8u)-1;
 
         if (Group_Current)
         {
@@ -1923,7 +2046,8 @@ void File_Ac4::substream_index_table()
             {
                 int32u substream_size32;
                 Get_V4(2, substream_size32,                     "substream_size");
-                substream_size=(int16u)substream_size32<<10;
+                substream_size+=(int16u)substream_size32<<10;
+                Param_Info1(substream_size);
             }
             Substream_Size.push_back(substream_size);
         }
@@ -2014,7 +2138,18 @@ void File_Ac4::ac4_substream(size_t Substream_Index)
 
     size_t Pos_After=Data_BS_Remain();
     if (Pos_Before-Pos_After<(Substream_Size[Substream_Index]*8))
-        Skip_BS((Substream_Size[Substream_Index]*8)-(Pos_Before-Pos_After), "remaining_substream_data");
+    {
+        size_t Bits=(Substream_Size[Substream_Index]*8)-(Pos_Before-Pos_After);
+        bool Align=false;
+        if (Bits<8)
+        {
+            int8u Value;
+            Peek_S1((int8u)Bits, Value);
+            if (!Value)
+                Align=true;
+        }
+        Skip_BS(Bits, Align?"byte_align":"?");
+    }
     BS_End();
     Element_End0();
 }
@@ -2215,17 +2350,20 @@ void File_Ac4::ac4_presentation_substream(size_t Substream_Index)
 void File_Ac4::metadata(size_t Substream_Index)
 {
     Element_Begin1("metadata");
-    basic_metadata(AudioSubstreams[Substream_Index].LoudnessInfo, AudioSubstreams[Substream_Index].Preprocessing, AudioSubstreams[Substream_Index].Channel_Mode, AudioSubstreams[Substream_Index].Sus_Ver);
-    extended_metadata(AudioSubstreams[Substream_Index].Channel_Mode, AudioSubstreams[Substream_Index].Sus_Ver);
+    basic_metadata(AudioSubstreams[Substream_Index].LoudnessInfo, AudioSubstreams[Substream_Index].Preprocessing, AudioSubstreams[Substream_Index].ch_mode, AudioSubstreams[Substream_Index].Sus_Ver);
+    extended_metadata(AudioSubstreams[Substream_Index].ch_mode, AudioSubstreams[Substream_Index].Sus_Ver);
 
     // TODO:
     // if (b_alternative && !b_ajoc)
     //     oamd_dyndata_single(n_objs, num_obj_info_blocks, b_iframe, b_alternative, obj_type[n_objs], b_lfe[n_objs]);
 
-    int8u tools_metadata_size;
-    Get_S1(7, tools_metadata_size,                              "tools_metadata_size");
+    int8u tools_metadata_size8;
+    Get_S1(7, tools_metadata_size8,                             "tools_metadata_size");
+    int32u tools_metadata_size=tools_metadata_size8;
     TEST_SB_SKIP(                                               "b_more_bits");
-        Skip_V4(3,                                              "tools_metadata_size"); //TODO
+        int32u tools_metadata_size32;
+        Get_V4 (3, tools_metadata_size32,                       "tools_metadata_size");
+        tools_metadata_size+=tools_metadata_size32<<7;
     TEST_SB_END();
 
     if (false)
@@ -2238,11 +2376,15 @@ void File_Ac4::metadata(size_t Substream_Index)
     // TODO:
     // if (!sus_ver)
     //    drc_frame(b_iframe);
-    dialog_enhancement(AudioSubstreams[Substream_Index].DeInfo, AudioSubstreams[Substream_Index].Channel_Mode, true /* TODO: b_iframe */);
+    dialog_enhancement(AudioSubstreams[Substream_Index].DeInfo, AudioSubstreams[Substream_Index].ch_mode, true /* TODO: b_iframe */);
     size_t Pos_After=Data_BS_Remain();
     if (tools_metadata_size!=Pos_Before-Pos_After)
+    {
         Fill(Stream_Audio, 0, "NOK", "tools_metadata", -1, true, true);//TODO remove
         Element_Info1("Problem");
+        if (tools_metadata_size>Pos_Before-Pos_After)
+            Skip_BS(tools_metadata_size-(Pos_Before-Pos_After), "?");
+    }
     }
 
     TEST_SB_SKIP("b_emdf_payloads_substream");
@@ -2297,9 +2439,8 @@ void File_Ac4::metadata(size_t Substream_Index)
 }
 
 //---------------------------------------------------------------------------
-void File_Ac4::basic_metadata(loudness_info& L, preprocessing& P, int16u channel_mode, bool sus_ver)
+void File_Ac4::basic_metadata(loudness_info& L, preprocessing& P, int8u ch_mode, bool sus_ver)
 {
-    int8u ch_mode=Channel_Mode_to_Ch_Mode(channel_mode), dialnorm_bits=(int8u)-1;
     Element_Begin1("basic_metadata");
     if (!sus_ver)
         Get_S1 (7, L.dialnorm_bits,                             "dialnorm_bits");
@@ -2349,7 +2490,7 @@ void File_Ac4::basic_metadata(loudness_info& L, preprocessing& P, int16u channel
                         Skip_S1(5,                              "ltrt_dmx_loud_corr");
                     TEST_SB_END();
 
-                    if (Channel_Mode_Contains_Lfe(channel_mode))
+                    if (Channel_Mode_Contains_Lfe(ch_mode))
                     {
                         TEST_SB_SKIP(                           "b_lfe_mixinfo");
                             Skip_S1(5,                          "lfe_mixgain");
@@ -2371,7 +2512,7 @@ void File_Ac4::basic_metadata(loudness_info& L, preprocessing& P, int16u channel
                 TEST_SB_END();
             }
 
-            if (ch_mode>=5 && ch_mode<=12)
+            if (ch_mode>=5 && ch_mode<=10)
             {
                 TEST_SB_SKIP(                                   "b_upmixtyp_7ch");
                     if (ch_mode==5 || ch_mode==6)
@@ -2394,9 +2535,8 @@ void File_Ac4::basic_metadata(loudness_info& L, preprocessing& P, int16u channel
 }
 
 //---------------------------------------------------------------------------
-void File_Ac4::extended_metadata(int16u channel_mode, bool sus_ver)
+void File_Ac4::extended_metadata(int8u ch_mode, bool sus_ver)
 {
-    int8u ch_mode=Channel_Mode_to_Ch_Mode(channel_mode);
     bool b_associated=false; // TODO: get b_associated value for stream
     bool b_dialog=false;
     Element_Begin1("extended_metadata");
@@ -2443,13 +2583,13 @@ void File_Ac4::extended_metadata(int16u channel_mode, bool sus_ver)
     }
 
     TEST_SB_SKIP(                                               "b_channels_classifier");
-        if (Channel_Mode_Contains_C(channel_mode))
+        if (Channel_Mode_Contains_C(ch_mode))
         {
             TEST_SB_SKIP(                                       "b_c_active");
                 Skip_SB(                                        "b_c_has_dialog");
             TEST_SB_END();
         }
-        if (Channel_Mode_Contains_Lr(channel_mode))
+        if (Channel_Mode_Contains_Lr(ch_mode))
         {
             TEST_SB_SKIP(                                       "b_l_active");
                 Skip_SB(                                        "b_l_has_dialog");
@@ -2459,27 +2599,27 @@ void File_Ac4::extended_metadata(int16u channel_mode, bool sus_ver)
                 Skip_SB(                                        "b_r_has_dialog");
             TEST_SB_END();
         }
-        if (Channel_Mode_Contains_LsRs(channel_mode))
+        if (Channel_Mode_Contains_LsRs(ch_mode))
         {
             Skip_SB(                                            "b_ls_active");
             Skip_SB(                                            "b_rs_active");
         }
-        if (Channel_Mode_Contains_LrsRrs(channel_mode))
+        if (Channel_Mode_Contains_LrsRrs(ch_mode))
         {
             Skip_SB(                                            "b_lrs_active");
             Skip_SB(                                            "b_rrs_active");
         }
-        if (Channel_Mode_Contains_LwRw(channel_mode))
+        if (Channel_Mode_Contains_LwRw(ch_mode))
         {
             Skip_SB(                                            "b_lw_active");
             Skip_SB(                                            "b_rw_active");
         }
-        if (Channel_Mode_Contains_VhlVhr(channel_mode))
+        if (Channel_Mode_Contains_VhlVhr(ch_mode))
         {
             Skip_SB(                                            "b_vhl_active");
             Skip_SB(                                            "b_vhr_active");
         }
-        if (Channel_Mode_Contains_Lfe(channel_mode))
+        if (Channel_Mode_Contains_Lfe(ch_mode))
         {
             Skip_SB(                                            "b_lfe_active");
         }
@@ -2492,10 +2632,9 @@ void File_Ac4::extended_metadata(int16u channel_mode, bool sus_ver)
 }
 
 //---------------------------------------------------------------------------
-void File_Ac4::dialog_enhancement(de_info& Info, int16u channel_mode, bool b_iframe)
+void File_Ac4::dialog_enhancement(de_info& Info, int8u ch_mode, bool b_iframe)
 {
     bool b_de_config_flag=b_iframe;
-    int8u ch_mode=Channel_Mode_to_Ch_Mode(channel_mode);
 
     Element_Begin1("dialog_enhancement");
     TEST_SB_GET (Info.b_de_data_present,                        "b_de_data_present");
@@ -3127,7 +3266,7 @@ void File_Ac4::further_loudness_info(loudness_info& L, bool sus_ver, bool b_pres
 
     TEST_SB_SKIP(                                               "b_loudspchgat");
         Get_S2 (11, L.loudspchgat,                              "loudspchgat");
-        Skip_S1(3,                                              "dialgate_prac_type");
+        Get_S1 (3, L.loudspchgat_dialgate_prac_type,            "dialgate_prac_type");
     TEST_SB_END();
 
     TEST_SB_SKIP(                                               "b_loudstrm3s");
@@ -3253,7 +3392,7 @@ void File_Ac4::Get_V4(int8u Bits, int32u& Info, const char* Name)
             for (;;)
             {
                 Info+=BS->Get4(Bits);
-                Count+=Bits;
+                Count+=1+Bits;
                 if (!BS->GetB())
                     break;
                 Info<<=Bits;
@@ -3392,53 +3531,33 @@ void File_Ac4::Get_V4(int8u Bits1, int8u Bits2, int8u Bits3, int8u Bits4, int32u
 }
 
 //---------------------------------------------------------------------------
-void File_Ac4::Get_V4(int8u Bits1, int8u Bits2, int8u Bits3, int8u Bits4, int8u Bits5, int8u Bits6, int32u  &Info, const char* Name)
+void File_Ac4::Get_V4(const variable_size* Bits, int8u &Info, const char* Name)
 {
-    // TODO: better code
-    Info = 0;
-
+    int8u TotalSize=Bits[0].AddedSize;
+    Bits++;
+    int8u BitSize=0;
     int16u Temp;
-    int8u Count=Bits1;
-
-    Peek_S2(Bits1, Temp);
-    if (Temp==~(~0u<<Bits1))
+    for (int8u i=0; i<TotalSize; i++)
     {
-        Count=Bits2;
-        Peek_S2(Bits2, Temp);
-        if (Temp==~(~0u<<Bits2))
+        int8u AddedSize=Bits[i].AddedSize;
+        if (AddedSize)
         {
-            Count=Bits3;
-            Peek_S2(Bits3, Temp);
-            if (Temp==~(~0u<<Bits3))
-            {
-                Count=Bits4;
-                Peek_S2(Bits4, Temp);
-                if (Temp==~(~0u<<Bits4))
-                {
-                    Count=Bits5;
-                    Peek_S2(Bits5, Temp);
-
-                    if (Temp==~(~0u<<Bits5))
-                    {
-                        Count=Bits6;
-                        Peek_S2(Bits6, Temp);
-                    }
-                }
-            }
+            BitSize+=AddedSize;
+            Peek_S2(BitSize, Temp);
+        }
+        if (Temp==Bits[i].Value)
+        {
+            Skip_S2(BitSize, Name); Param_Info1(i);
+            Info=i;
+            return;
         }
     }
 
-    Info=(int32u)Temp;
-    BS->Skip(Count);
-    #if MEDIAINFO_TRACE
-        if (Trace_Activated)
-        {
-            Param(Name, Info, Count);
-            Param_Info(__T("(")+Ztring::ToZtring(Count)+__T(" bits)"));
-        }
-    #endif //MEDIAINFO_TRACE
+    //Problem
+    Skip_S2(BitSize, Name);
+    Trusted_IsNot("Variable size");
+    Info=(int8u)-1;
 }
-//---------------------------------------------------------------------------
 
 //---------------------------------------------------------------------------
 void File_Ac4::Get_VB(int8u  &Info, const char* Name)
@@ -3550,101 +3669,6 @@ int8u File_Ac4::Superset(int8u Ch_Mode1, int8u Ch_Mode2)
     }
 
     return (int8u)-1;
-}
-
-//---------------------------------------------------------------------------
-int8u File_Ac4::Channel_Mode_to_Ch_Mode(int16u Channel_Mode)
-{
-    switch (Channel_Mode)
-    {
-        case 0b10: return 1; break;
-        case 0b1100: return 2; break;
-        case 0b1101: return 3; break;
-        case 0b1110: return 4; break;
-        case 0b1111000: return 5; break;
-        case 0b1111001: return 6; break;
-        case 0b1111010: return 7; break;
-        case 0b1111011: return 8; break;
-        case 0b1111100: return 9; break;
-        case 0b1111101: return 10; break;
-        case 0b111111100: return 11; break;
-        case 0b111111101: return 12; break;
-        case 0b1111111100: return 13; break;
-        case 0b1111111101: return 14; break;
-        case 0b1111111110: return 15; break;
-    }
-
-    return 0;
-}
-
-//---------------------------------------------------------------------------
-bool File_Ac4::Channel_Mode_Contains_Lfe(int16u Channel_Mode)
-{
-    int8u ch_mode=Channel_Mode_to_Ch_Mode(Channel_Mode);
-    if (ch_mode==4 || ch_mode==6 || ch_mode==8 || ch_mode==10 || ch_mode==12 || ch_mode==14 || ch_mode==15)
-        return true;
-
-    return false;
-}
-
-//---------------------------------------------------------------------------
-bool File_Ac4::Channel_Mode_Contains_C(int16u Channel_Mode)
-{
-    int8u ch_mode=Channel_Mode_to_Ch_Mode(Channel_Mode);
-    if (ch_mode==0 || (ch_mode>=2 && ch_mode<=15))
-        return true;
-
-    return false;
-}
-
-//---------------------------------------------------------------------------
-bool File_Ac4::Channel_Mode_Contains_Lr(int16u Channel_Mode)
-{
-    int8u ch_mode=Channel_Mode_to_Ch_Mode(Channel_Mode);
-    if (ch_mode>=1 && ch_mode<=15)
-        return true;
-
-    return false;
-}
-
-//---------------------------------------------------------------------------
-bool File_Ac4::Channel_Mode_Contains_LsRs(int16u Channel_Mode)
-{
-    int8u ch_mode=Channel_Mode_to_Ch_Mode(Channel_Mode);
-    if (ch_mode>=3 && ch_mode<=15)
-        return true;
-
-    return false;
-}
-
-//---------------------------------------------------------------------------
-bool File_Ac4::Channel_Mode_Contains_LrsRrs(int16u Channel_Mode)
-{
-    int8u ch_mode=Channel_Mode_to_Ch_Mode(Channel_Mode);
-    if (ch_mode==5 || ch_mode==6 || (ch_mode>=11 && ch_mode<=15))
-        return true;
-
-    return false;
-}
-
-//---------------------------------------------------------------------------
-bool File_Ac4::Channel_Mode_Contains_LwRw(int16u Channel_Mode)
-{
-    int8u ch_mode=Channel_Mode_to_Ch_Mode(Channel_Mode);
-    if (ch_mode==7 || ch_mode==8 || ch_mode==15)
-        return true;
-
-    return false;
-}
-
-//---------------------------------------------------------------------------
-bool File_Ac4::Channel_Mode_Contains_VhlVhr(int16u Channel_Mode)
-{
-    int8u ch_mode=Channel_Mode_to_Ch_Mode(Channel_Mode);
-    if (ch_mode==9 || ch_mode==10)
-        return true;
-
-    return false;
 }
 
 //---------------------------------------------------------------------------
