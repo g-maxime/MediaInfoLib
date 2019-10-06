@@ -130,7 +130,7 @@ typedef const char* sized_array_string[];
 string Value(const sized_array_string Array, size_t Pos)
 {
     if (Pos++>=(size_t)Array[0] || !Array[Pos])
-        return Ztring::ToZtring(Pos).To_UTF8();
+        return Ztring::ToZtring(Pos-1).To_UTF8();
     return Array[Pos];
 }
 
@@ -503,8 +503,8 @@ void File_Ac4::Streams_Fill()
                 if (L.loudspchgat!=(int16u)-1)
                 {
                     string IntegratedLoudness_Speech=Ztring::ToZtring((L.loudspchgat-1024)/10.0, 1).To_UTF8()+" LKFS";
-                    if (L.loud_dialgate_prac_type)
-                        IntegratedLoudness_Speech+=" ("+Value(Ac4_loud_dialgate_prac_type, L.loud_dialgate_prac_type)+')';
+                    if (L.loudspchgat_dialgate_prac_type)
+                        IntegratedLoudness_Speech+=" ("+Value(Ac4_loud_dialgate_prac_type, L.loudspchgat_dialgate_prac_type)+')';
                     Fill(Stream_Audio, 0, (P+" Loudness IntegratedLoudness_Speech").c_str(), IntegratedLoudness_Speech);
                 }
                 if (L.loudrelgat!=(int16u)-1)
@@ -2440,7 +2440,7 @@ void File_Ac4::ac4_presentation_substream(size_t substream_index, size_t Substre
         TEST_SB_END();
     TEST_SB_END();
 
-    if (P.pres_ch_mode<=4 || BS->Remain()>=4) //TODO: remove this when parsing issue is understood
+    if (P.pres_ch_mode==(int8u)-1 || P.pres_ch_mode<=4 || BS->Remain()>=4) //TODO: remove this when parsing issue is understood
     {
     custom_dmx_data(P.Dmx, P.pres_ch_mode, P.pres_ch_mode_core, P.b_pres_4_back_channels_present, P.pres_top_channel_pairs, b_pres_has_lfe);
     loud_corr(P.pres_ch_mode, P.pres_ch_mode_core, false/* TODO: b_objects? */);
