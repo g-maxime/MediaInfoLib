@@ -433,12 +433,13 @@ public :
             content_classifier((int8u)-1)
         {}
     };
-	
-	//TODO move
-	struct obj
-	{
-		bool b_dynamic_objects;
-		int8u n_objects_code;
+    
+    //TODO move
+    struct obj
+    {
+        int8u n_objects_code;
+        bool b_dynamic_objects;
+        bool b_lfe;
     };
 
     //Constructor/Destructor
@@ -474,7 +475,7 @@ private :
     void ac4_hsf_ext_substream_info(bool b_substreams_present);
     void ac4_substream_info_chan(bool sus_ver);
     void ac4_substream_info_ajoc(bool b_substreams_present);
-    void ac4_substream_info_obj(obj& O, bool b_substreams_present);
+    void ac4_substream_info_obj(bool b_substreams_present);
     void ac4_presentation_substream_info();
     void presentation_config_ext_info(int8u presentation_config);
     void bed_dyn_obj_assignment(int8u n_signals);
@@ -569,14 +570,14 @@ private :
         int8u ch_mode;
 
         bool b_4_back_channels_present; // TODO: Move to audio_substream
+        bool b_centre_present; // TODO: Move to audio_substream
         int8u top_channels_present;     // TODO: Move to audio_substream
         bool b_static_dmx;              // TODO: Move to audio_substream
 
         group_substream() :
             ch_mode_core((int8u)-1),
             ch_mode((int8u)-1),
-            b_4_back_channels_present(false),
-            top_channels_present(0),
+            top_channels_present((int8u)-1),
             b_static_dmx(false)
         {}
     };
@@ -596,13 +597,15 @@ private :
     {
         content_info ContentInfo;
         bool Sus_Ver;
-        bool Channel_Coded;
+        bool b_channel_coded;
         int8u ch_mode;
         loudness_info LoudnessInfo;
         drc_info DrcInfo;
         de_info DeInfo;
         preprocessing Preprocessing;
         bool b_iframe;
+        bool b_ajoc;
+        obj Obj;
     };
     std::map<int8u, audio_substream> AudioSubstreams;
 
