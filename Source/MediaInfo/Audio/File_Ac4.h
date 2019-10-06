@@ -449,9 +449,49 @@ private :
         Type_Oamd_Substream
     };
 
+    //Presentations
+    struct presentation_substream
+    {
+        substream_type_t substream_type;
+        int8u substream_index;
+    };
+    struct presentation
+    {
+        vector<size_t> substream_group_info_specifiers;
+        vector<presentation_substream> Substreams;
+
+        int8u presentation_version;
+        bool b_pres_ndot;
+        bool b_alternative;
+        int8u substream_index;
+        int8u presentation_config;
+        int8u n_substream_groups;
+        int8u b_multi_pid_PresentAndValue;
+        loudness_info LoudnessInfo;
+        drc_info DrcInfo;
+        dmx Dmx;
+
+        //Computed
+        int8u pres_ch_mode;
+        int8u pres_ch_mode_core;
+        int8u n_substreams_in_presentation;
+        bool b_pres_4_back_channels_present;
+        bool b_pres_centre_present;
+        int8u pres_top_channel_pairs;
+        string Language;
+
+        presentation() :
+            presentation_config((int8u)-1)
+        {}
+    };
+    vector<presentation> Presentations;
+    presentation* Presentation_Current;
+
+    //Groups
     struct group_substream
     {
         substream_type_t substream_type;
+        int8u substream_index;
         bool sus_ver;
 
         // b_channel_coded
@@ -459,7 +499,6 @@ private :
         bool b_4_back_channels_present;
         bool b_centre_present;
         int8u top_channels_present;
-        int8u substream_index;
         int8u hsf_substream_index;
 
         // b_ajoc
@@ -471,8 +510,9 @@ private :
         bool b_dynamic_objects;
         bool b_lfe;
 
-        // Temp
+        // Computed
         int8u ch_mode_core;
+        int8u top_channel_pairs;
 
         group_substream() :
             sus_ver(false),
@@ -482,6 +522,29 @@ private :
             hsf_substream_index((int8u)-1)
         {}
     };
+    struct group
+    {
+        vector<group_substream> Substreams;
+        content_info ContentInfo;
+        bool b_channel_coded;
+        bool b_hsf_ext;
+    };
+    vector<group> Groups;
+
+    //Audio substreams
+    struct audio_substream
+    {
+        group_substream GroupInfo;
+
+        content_info ContentInfo;
+        bool b_iframe;
+
+        loudness_info LoudnessInfo;
+        drc_info DrcInfo;
+        de_info DeInfo;
+        preprocessing Preprocessing;
+    };
+    std::map<int8u, audio_substream> AudioSubstreams;
 
     //Streams management
     void Streams_Fill();
@@ -506,7 +569,7 @@ private :
     void ac4_presentation_info();
     void ac4_presentation_v1_info();
     void ac4_sgi_specifier();
-    void ac4_substream_info(int8u& substream_index);
+    void ac4_substream_info(presentation& P, int8u& substream_index);
     void ac4_substream_group_info();
     void ac4_hsf_ext_substream_info(group_substream& G, bool b_substreams_present);
     void ac4_substream_info_chan(group_substream& G, bool b_substreams_present);
@@ -518,8 +581,8 @@ private :
     void content_type(content_info& ContentInfo);
     void frame_rate_multiply_info();
     void frame_rate_fractions_info();
-    void emdf_info(group_substream& G);
-    void emdf_payloads_substream_info(group_substream& G);
+    void emdf_info(presentation_substream& P);
+    void emdf_payloads_substream_info(presentation_substream& P);
     void emdf_protection();
     void substream_index_table();
     void oamd_substream_info(group_substream& G, bool b_substreams_present);
@@ -564,55 +627,6 @@ private :
     void Get_V4(const variable_size* Bits, int8u &Info, const char* Name);
     void Get_VB (int8u  &Info, const char* Name);
     void Skip_VB(const char* Name);
-
-    //Presentations
-    struct presentation
-    {
-        vector<group_substream> Substreams;
-
-        int8u presentation_version;
-        bool b_pres_ndot;
-        bool b_alternative;
-        int8u substream_index;
-        int8u presentation_config;
-        int8u n_substream_groups;
-        int8u b_multi_pid_PresentAndValue;
-        vector<size_t> substream_group_info_specifiers;
-        loudness_info LoudnessInfo;
-        drc_info DrcInfo;
-        dmx Dmx;
-
-        presentation() :
-            presentation_config((int8u)-1)
-        {}
-    };
-    vector<presentation> Presentations;
-    presentation* Presentation_Current;
-
-    //Groups
-    struct group
-    {
-        vector<group_substream> Substreams;
-        content_info ContentInfo;
-        bool b_channel_coded;
-        bool b_hsf_ext;
-    };
-    vector<group> Groups;
-
-    //Audio substreams
-    struct audio_substream
-    {
-        group_substream GroupInfo;
-
-        content_info ContentInfo;
-        bool b_iframe;
-
-        loudness_info LoudnessInfo;
-        drc_info DrcInfo;
-        de_info DeInfo;
-        preprocessing Preprocessing;
-    };
-    std::map<int8u, audio_substream> AudioSubstreams;
 
     //Utils
     bool CRC_Compute(size_t Size);
