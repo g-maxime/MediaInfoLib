@@ -429,24 +429,60 @@ public :
     {
         int8u content_classifier;
         string language_tag_bytes;
+
         content_info() :
             content_classifier((int8u)-1)
         {}
     };
     
-    //TODO move
-    struct obj
-    {
-        int8u n_objects_code;
-        bool b_dynamic_objects;
-        bool b_lfe;
-    };
-
     //Constructor/Destructor
     File_Ac4();
     ~File_Ac4();
 
 private :
+    enum substream_type_t
+    {
+        Type_Ac4_Substream,
+        Type_Ac4_Hsf_Ext_Substream,
+        Type_Emdf_Payloads_Substream,
+        Type_Ac4_Presentation_Substream,
+        Type_Oamd_Substream
+    };
+
+    struct group_substream
+    {
+        substream_type_t substream_type;
+        bool sus_ver;
+
+        // b_channel_coded
+        int8u ch_mode;
+        bool b_4_back_channels_present;
+        bool b_centre_present;
+        int8u top_channels_present;
+        int8u substream_index;
+        int8u hsf_substream_index;
+
+        // b_ajoc
+        bool b_ajoc;
+        bool b_static_dmx;
+
+        // !b_ajoc
+        int8u n_objects_code;
+        bool b_dynamic_objects;
+        bool b_lfe;
+
+        // Temp
+        int8u ch_mode_core;
+
+        group_substream() :
+            sus_ver(false),
+            ch_mode((int8u)-1),
+            ch_mode_core((int8u)-1),
+            top_channels_present((int8u)-1),
+            hsf_substream_index((int8u)-1)
+        {}
+    };
+
     //Streams management
     void Streams_Fill();
     void Streams_Finish();
@@ -470,23 +506,23 @@ private :
     void ac4_presentation_info();
     void ac4_presentation_v1_info();
     void ac4_sgi_specifier();
-    void ac4_substream_info();
+    void ac4_substream_info(int8u& substream_index);
     void ac4_substream_group_info();
-    void ac4_hsf_ext_substream_info(bool b_substreams_present);
-    void ac4_substream_info_chan(bool sus_ver);
-    void ac4_substream_info_ajoc(bool b_substreams_present);
-    void ac4_substream_info_obj(bool b_substreams_present);
+    void ac4_hsf_ext_substream_info(group_substream& G, bool b_substreams_present);
+    void ac4_substream_info_chan(group_substream& G, bool b_substreams_present);
+    void ac4_substream_info_ajoc(group_substream& G, bool b_substreams_present);
+    void ac4_substream_info_obj(group_substream& G, bool b_substreams_present);
     void ac4_presentation_substream_info();
     void presentation_config_ext_info(int8u presentation_config);
     void bed_dyn_obj_assignment(int8u n_signals);
     void content_type(content_info& ContentInfo);
     void frame_rate_multiply_info();
     void frame_rate_fractions_info();
-    void emdf_info();
-    void emdf_payloads_substream_info();
+    void emdf_info(group_substream& G);
+    void emdf_payloads_substream_info(group_substream& G);
     void emdf_protection();
     void substream_index_table();
-    void oamd_substream_info(bool b_substreams_present);
+    void oamd_substream_info(group_substream& G, bool b_substreams_present);
     void oamd_common_data();
 
     void ac4_substream(size_t substream_index);
@@ -529,19 +565,11 @@ private :
     void Get_VB (int8u  &Info, const char* Name);
     void Skip_VB(const char* Name);
 
-    //Info
-    enum substream_type_t
-    {
-        Type_Ac4_Substream,
-        Type_Ac4_Hsf_Ext_Substream,
-        Type_Emdf_Payloads_Substream,
-        Type_Ac4_Presentation_Substream,
-        Type_Oamd_Substream
-    };
-
     //Presentations
     struct presentation
     {
+        vector<group_substream> Substreams;
+
         int8u presentation_version;
         bool b_pres_ndot;
         bool b_alternative;
@@ -562,26 +590,6 @@ private :
     presentation* Presentation_Current;
 
     //Groups
-    struct group_substream
-    {
-        substream_type_t substream_type;
-        int8u substream_index;
-        int8u ch_mode_core;
-        int8u ch_mode;
-
-        bool b_4_back_channels_present; // TODO: Move to audio_substream
-        bool b_centre_present; // TODO: Move to audio_substream
-        int8u top_channels_present;     // TODO: Move to audio_substream
-        bool b_static_dmx;              // TODO: Move to audio_substream
-
-        group_substream() :
-            ch_mode_core((int8u)-1),
-            ch_mode((int8u)-1),
-            top_channels_present((int8u)-1),
-            b_static_dmx(false)
-        {}
-    };
-
     struct group
     {
         vector<group_substream> Substreams;
@@ -590,22 +598,19 @@ private :
         bool b_hsf_ext;
     };
     vector<group> Groups;
-    group* Group_Current;
 
     //Audio substreams
     struct audio_substream
     {
+        group_substream GroupInfo;
+
         content_info ContentInfo;
-        bool Sus_Ver;
-        bool b_channel_coded;
-        int8u ch_mode;
+        bool b_iframe;
+
         loudness_info LoudnessInfo;
         drc_info DrcInfo;
         de_info DeInfo;
         preprocessing Preprocessing;
-        bool b_iframe;
-        bool b_ajoc;
-        obj Obj;
     };
     std::map<int8u, audio_substream> AudioSubstreams;
 
