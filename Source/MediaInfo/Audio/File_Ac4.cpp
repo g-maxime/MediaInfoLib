@@ -418,6 +418,14 @@ static inline bool Channel_Mode_Contains_VhlVhr(int8u ch_mode)
 }
 
 //---------------------------------------------------------------------------
+static inline int8u objs_to_channel_mode(int8u n_objects_code)
+{
+    if (n_objects_code && n_objects_code <= 4)
+        return n_objects_code-1;
+    return (int8u)-1; //Reserved/Unknown/Problem
+}
+
+//---------------------------------------------------------------------------
 void File_Ac4::Streams_Fill()
 {
     //
@@ -1430,7 +1438,7 @@ void File_Ac4::ac4_substream_info()
 
             audio_substream* AudioSubstream_Current=&AudioSubstreams[substream_index];
             AudioSubstream_Current->Sus_Ver=false;
-            AudioSubstream_Current->Channel_Coded=true; /* TODO: correct value ? */
+            AudioSubstream_Current->b_channel_coded=true; /* TODO: correct value ? */
             AudioSubstream_Current->ch_mode=ch_mode;
             if (b_content_type)
                 AudioSubstream_Current->ContentInfo=ContentInfo;
@@ -1487,8 +1495,7 @@ void File_Ac4::ac4_substream_group_info()
             TESTELSE_SB_SKIP(                                   "b_ajoc");
                 ac4_substream_info_ajoc(b_substreams_present);
             TESTELSE_SB_ELSE(                                   "b_ajoc");
-                obj Obj;
-				ac4_substream_info_obj(Obj, b_substreams_present);
+                ac4_substream_info_obj(b_substreams_present);
             TESTELSE_SB_END();
             if (b_hsf_ext)
             {
@@ -1543,8 +1550,8 @@ void File_Ac4::ac4_hsf_ext_substream_info(bool b_substreams_present)
 void File_Ac4::ac4_substream_info_chan(bool sus_ver)
 {
     Fill(Stream_Audio, 0, "sus_ver", sus_ver, 10, true);//TODO remove
-    bool b_4_back_channels_present=false;
-    int8u top_channels_present=0;
+    bool b_4_back_channels_present, b_centre_present;
+    int8u top_channels_present;
     int8u substream_index;
     int8u ch_mode;
     Element_Begin1(                                             "ac4_substream_info_chan");
@@ -1559,8 +1566,8 @@ void File_Ac4::ac4_substream_info_chan(bool sus_ver)
 
     if (ch_mode>=11 && ch_mode<=14)
     {
-        Get_SB (b_4_back_channels_present,                      "b_4_back_channels_present");
-        Skip_SB(                                                "b_centre_present");
+        Get_SB (   b_4_back_channels_present,                   "b_4_back_channels_present");
+        Get_SB (   b_centre_present,                            "b_centre_present");
         Get_S1 (2, top_channels_present,                        "top_channels_present");
     }
 
@@ -1594,7 +1601,7 @@ void File_Ac4::ac4_substream_info_chan(bool sus_ver)
 
     audio_substream* AudioSubstream_Current=&AudioSubstreams[substream_index];
     AudioSubstream_Current->Sus_Ver=sus_ver;
-    AudioSubstream_Current->Channel_Coded=true;
+    AudioSubstream_Current->b_channel_coded=true;
     AudioSubstream_Current->ch_mode=ch_mode;
     AudioSubstream_Current->b_iframe=true; //TODO if b_global_iframe is 0
 
@@ -1615,8 +1622,12 @@ void File_Ac4::ac4_substream_info_chan(bool sus_ver)
                         Group_Current->Substreams.back().ch_mode_core=6;
                         break;
         }
-        Group_Current->Substreams.back().b_4_back_channels_present=b_4_back_channels_present;
-        Group_Current->Substreams.back().top_channels_present=top_channels_present;
+        if (ch_mode>=11 && ch_mode<=14)
+        {
+            Group_Current->Substreams.back().b_4_back_channels_present=b_4_back_channels_present;
+            Group_Current->Substreams.back().b_centre_present=b_centre_present;
+            Group_Current->Substreams.back().top_channels_present=top_channels_present;
+        }
     }
     Element_End0();
 }
@@ -1682,8 +1693,9 @@ void File_Ac4::ac4_substream_info_ajoc(bool b_substreams_present)
 
         audio_substream* AudioSubstream_Current=&AudioSubstreams[substream_index];
         AudioSubstream_Current->Sus_Ver=true;
-        AudioSubstream_Current->Channel_Coded=false;
+        AudioSubstream_Current->b_channel_coded=false;
         AudioSubstream_Current->ch_mode=(int8u)-1;
+        AudioSubstream_Current->b_ajoc=true;
 
         if (Group_Current)
         {
@@ -1700,14 +1712,18 @@ void File_Ac4::ac4_substream_info_ajoc(bool b_substreams_present)
 }
 
 //---------------------------------------------------------------------------
-void File_Ac4::ac4_substream_info_obj(obj& O, bool b_substreams_present)
+void File_Ac4::ac4_substream_info_obj(bool b_substreams_present)
 {
     int8u substream_index;
+    int8u n_objects_code;
+    bool b_dynamic_objects;
+    bool b_lfe;
     Element_Begin1(                                             "ac4_substream_info_obj");
-    Get_S1 (3, O.n_objects_code,                                "n_objects_code");
-    TESTELSE_SB_GET (O.b_dynamic_objects,                       "b_dynamic_objects");
-        Skip_SB(                                                "b_lfe");
+    Get_S1 (3, n_objects_code,                                  "n_objects_code");
+    TESTELSE_SB_GET (b_dynamic_objects,                         "b_dynamic_objects");
+        Get_SB (b_lfe,                                          "b_lfe");
     TESTELSE_SB_ELSE(                                           "b_dynamic_objects");
+        b_lfe=false; //TODO: b_lfe in bed_chan_assign_code, nonstd_bed_channel_assignment_mask, or std_bed_channel_assignment_mask
         TESTELSE_SB_SKIP(                                       "b_bed_objects");
             TEST_SB_SKIP(                                       "b_bed_start");
                 TESTELSE_SB_SKIP(                               "b_ch_assign_code");
@@ -1763,8 +1779,12 @@ void File_Ac4::ac4_substream_info_obj(obj& O, bool b_substreams_present)
 
         audio_substream* AudioSubstream_Current=&AudioSubstreams[substream_index];
         AudioSubstream_Current->Sus_Ver=true;
-        AudioSubstream_Current->Channel_Coded=false;
+        AudioSubstream_Current->b_channel_coded=false;
         AudioSubstream_Current->ch_mode=(int8u)-1;
+        AudioSubstream_Current->b_ajoc=false;
+        AudioSubstream_Current->Obj.n_objects_code=n_objects_code;
+        AudioSubstream_Current->Obj.b_dynamic_objects=b_dynamic_objects;
+        AudioSubstream_Current->Obj.b_lfe=b_lfe;
 
         if (Group_Current)
         {
@@ -1882,7 +1902,7 @@ void File_Ac4::content_type(content_info& ContentInfo)
 {
     Element_Begin1(                                             "content_type");
         int8u content_classifier;
-        Get_S1 (3, content_classifier,                          "content_classifier");
+        Get_S1 (3, content_classifier,                          "content_classifier"); Param_Info1(Value(Ac4_content_classifier, content_classifier));
         TEST_SB_SKIP(                                           "b_language_indicator");
             TESTELSE_SB_SKIP(                                   "b_serialized_language_tag");
                 Skip_SB(                                        "b_start_tag");
@@ -2157,12 +2177,13 @@ void File_Ac4::oamd_common_data()
 //---------------------------------------------------------------------------
 void File_Ac4::ac4_substream(size_t substream_index)
 {
-    int32u audio_size;
-
+    audio_substream& AudioSubstream=AudioSubstreams[substream_index];
+        
     Element_Begin1("ac4_substream");
     Element_Info1(Ztring::ToZtring(substream_index));
     BS_Begin();
     size_t Pos_Before=Data_BS_Remain();
+    int32u audio_size;
     Get_S4(15, audio_size,                                      "audio_size_value");
     TEST_SB_SKIP(                                               "b_more_bits");
         int32u audio_size32;
@@ -2171,7 +2192,23 @@ void File_Ac4::ac4_substream(size_t substream_index)
     TEST_SB_END();
 
     // Skip audio
-    Skip_BS(audio_size*8,                                       "audio_data");
+    const char* audio_data_name;
+    if (AudioSubstream.b_channel_coded)
+    {
+        audio_data_name="audio_data_chan";
+    }
+    else if (AudioSubstream.b_ajoc)
+    {
+        audio_data_name="audio_data_ajoc";
+    }
+    else
+    {
+        audio_data_name="audio_data_objs";
+        AudioSubstream.ch_mode=objs_to_channel_mode(AudioSubstream.Obj.n_objects_code);
+        if (AudioSubstream.ch_mode==3 && AudioSubstream.Obj.b_lfe)
+            AudioSubstream.ch_mode++; // ch_mode=4, 5.1
+    }
+    Skip_BS(audio_size*8,                                       audio_data_name);
 
     metadata(substream_index);
 
