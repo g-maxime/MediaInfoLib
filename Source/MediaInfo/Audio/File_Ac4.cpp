@@ -478,7 +478,7 @@ void File_Ac4::Streams_Fill()
         if (!Presentation_Current.Language.empty())
         {
             Summary+=" (";
-            Summary+=MediaInfoLib::Config.Language_Get(Ztring().From_UTF8("Language_"+Presentation_Current.Language)).To_UTF8();;
+            Summary+=MediaInfoLib::Config.Iso639_Translate(Ztring().From_UTF8(Presentation_Current.Language)).To_UTF8();
             Summary+=')';
         }
 
@@ -489,7 +489,7 @@ void File_Ac4::Streams_Fill()
         if (!Presentation_Current.Language.empty())
         {
             Fill(Stream_Audio, 0, (P+" Language").c_str(), Presentation_Current.Language);
-            Fill(Stream_Audio, 0, (P+" Language/String").c_str(), MediaInfoLib::Config.Language_Get(Ztring().From_UTF8("Language_"+ Presentation_Current.Language)));
+            Fill(Stream_Audio, 0, (P+" Language/String").c_str(), MediaInfoLib::Config.Iso639_Translate(Ztring().From_UTF8(Presentation_Current.Language)));
             Fill_SetOptions(Stream_Audio, 0, (P+" Language").c_str(), "N NTY");
             Fill_SetOptions(Stream_Audio, 0, (P+" Language/String").c_str(), "Y NTN");
         }
@@ -600,7 +600,7 @@ void File_Ac4::Streams_Fill()
         if (!Group.ContentInfo.language_tag_bytes.empty())
         {
             Summary+=" (";
-            Summary+=MediaInfoLib::Config.Language_Get(Ztring().From_UTF8("Language_"+Group.ContentInfo.language_tag_bytes)).To_UTF8();
+            Summary+=MediaInfoLib::Config.Iso639_Translate(Ztring().From_UTF8(Group.ContentInfo.language_tag_bytes)).To_UTF8();
             Summary+=')';
         }
         Fill(Stream_Audio, 0, Ztring(__T("Group")+Ztring::ToZtring(g)).To_UTF8().c_str(), Summary);
@@ -609,7 +609,7 @@ void File_Ac4::Streams_Fill()
         if (!Group.ContentInfo.language_tag_bytes.empty())
         {
             Fill(Stream_Audio, 0, (G+" Language").c_str(), Group.ContentInfo.language_tag_bytes);
-            Fill(Stream_Audio, 0, (G+" Language/String").c_str(), MediaInfoLib::Config.Language_Get(Ztring().From_UTF8("Language_"+Group.ContentInfo.language_tag_bytes)));
+            Fill(Stream_Audio, 0, (G+" Language/String").c_str(), MediaInfoLib::Config.Iso639_Translate(Ztring().From_UTF8(Group.ContentInfo.language_tag_bytes)));
             Fill_SetOptions(Stream_Audio, 0, (G+" Language").c_str(), "N NTY");
             Fill_SetOptions(Stream_Audio, 0, (G+" Language/String").c_str(), "Y NTN");
         }
