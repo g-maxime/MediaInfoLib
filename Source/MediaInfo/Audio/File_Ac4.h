@@ -485,7 +485,6 @@ private :
         {}
     };
     vector<presentation> Presentations;
-    presentation* Presentation_Current;
 
     //Groups
     struct group_substream
@@ -509,6 +508,7 @@ private :
         int8u n_objects_code;
         bool b_dynamic_objects;
         bool b_lfe;
+        int32u nonstd_bed_channel_assignment_mask;
 
         // Computed
         int8u ch_mode_core;
@@ -519,7 +519,8 @@ private :
             ch_mode((int8u)-1),
             ch_mode_core((int8u)-1),
             top_channels_present((int8u)-1),
-            hsf_substream_index((int8u)-1)
+            hsf_substream_index((int8u)-1),
+            nonstd_bed_channel_assignment_mask((int32u)-1)
         {}
     };
     struct group
@@ -568,14 +569,14 @@ private :
     void ac4_toc();
     void ac4_presentation_info();
     void ac4_presentation_v1_info();
-    void ac4_sgi_specifier();
+    void ac4_sgi_specifier(presentation& P);
     void ac4_substream_info(presentation& P, int8u& substream_index);
-    void ac4_substream_group_info();
+    void ac4_substream_group_info(presentation* P=NULL);
     void ac4_hsf_ext_substream_info(group_substream& G, bool b_substreams_present);
     void ac4_substream_info_chan(group_substream& G, bool b_substreams_present);
     void ac4_substream_info_ajoc(group_substream& G, bool b_substreams_present);
     void ac4_substream_info_obj(group_substream& G, bool b_substreams_present);
-    void ac4_presentation_substream_info();
+    void ac4_presentation_substream_info(presentation& P);
     void presentation_config_ext_info(int8u presentation_config);
     void bed_dyn_obj_assignment(int8u n_signals);
     void content_type(content_info& ContentInfo);
