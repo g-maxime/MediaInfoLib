@@ -687,6 +687,10 @@ void File_Ac4::Streams_Fill()
                     Summary[4]-=2*(2-Presentation_Current.pres_top_channel_pairs);
             }
         }
+        else
+        {
+            Summary="Object Audio";
+        }
         if (!Summary.empty())
             Summary+=' ';
         Summary+=Presentation_Current.presentation_config==(int8u)-1?"Main":Value(Ac4_presentation_config, Presentation_Current.presentation_config);
