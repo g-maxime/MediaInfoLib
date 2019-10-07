@@ -193,7 +193,7 @@ static const sized_array_string Ac4_content_classifier=
 "VO",
 };
 
-static const sized_array_string Ac4_ch_mode=
+static const sized_array_string Ac4_ch_mode_String=
 {
 (const char*)16,
 "Mono",
@@ -202,40 +202,111 @@ static const sized_array_string Ac4_ch_mode=
 "5.0",
 "5.1",
 "7.0 3/4/0",
-"7.1 3/4/0",
+"7.1 3/4/0.1",
 "7.0 5/2/0",
-"7.1 5/2/0",
+"7.1 5/2/0.1",
 "7.0 3/2/2",
-"7.1 3/2/2",
+"7.1 3/2/2.1",
 "7.0.4",
 "7.1.4",
 "9.0.4",
 "9.1.4",
 "22.2",
 };
-/*
-static const sized_array Ac4_ch_mode=
+enum ch
 {
-16,
-{
-"M",
-"L, R",
-"3.0",
-"5.0",
-"5.1",
-"L,C,R,Ls,Rs,Lrs,Rrs",
-"L,C,R,Ls,Rs,Lrs,Rrs,LFE",
-"L,C,R,Lw,Rw,Ls,Rs",
-"L,C,R,Lw,Rw,Ls,Rs,LFE",
-"L,C,R,Ls,Rs,Vhl,Vhr",
-"L,C,R,Ls,Rs,Vhl,Vhr,LFE",
-"7.0.4",
-"7.1.4",
-"9.0.4",
-"9.1.4",
-"22.2",
+    C    = 1 << 0,
+    L    = 1 << 1,
+    R    = 1 << 2,
+    LFE  = 1 << 3,
+    Ls   = 1 << 4,
+    Rs   = 1 << 5,
+    Lb   = 1 << 6,
+    Rb   = 1 << 7,
+    Tfl  = 1 << 8,
+    Tfr  = 1 << 9,
+    Tl   = 1 << 10,
+    Tr   = 1 << 11,
+    Tbl  = 1 << 12,
+    Tbr  = 1 << 13,
+    Lw   = 1 << 14,
+    Rw   = 1 << 15,
+    LFE2 = 1 << 16,
 };
-*/
+
+static int32u Ac4_ch_mode_2_nonstd_Values[16]=
+{
+    0,                                          //Mono
+    L | R,                                      //Stereo
+    L | R | C,                                  //3.0
+    L | R | C | Ls | Rs,                        //5.0
+    L | R | C | Ls | Rs | LFE,                  //5.1
+    L | R | C | Ls | Rs | Lb | Rb,              //7.0 3/4/0
+    L | R | C | Ls | Rs | Lb | Rb | LFE,        //7.1 3/4/0
+    L | R | C | Ls | Rs | Lw | Rw,              //7.0 5/2/0
+    L | R | C | Ls | Rs | Lw | Rw | LFE,        //7.1 5/2/0
+    L | R | C | Ls | Rs | Tl | Tr,              //7.0 3/2/2
+    L | R | C | Ls | Rs | Tl | Tr | LFE,        //7.1 3/2/2
+    L | R | C | Ls | Rs | Lb | Rb | Lw | Rw | Tfl | Tfr | Tbl | Tbr,            //7.0.4
+    L | R | C | Ls | Rs | Lb | Rb | Lw | Rw | Tfl | Tfr | Tbl | Tbr | LFE,      //7.1.4
+    L | R | C | Ls | Rs | Lb | Rb | Lw | Rw | Tfl | Tfr | Tbl | Tbr,            //9.0.4
+    L | R | C | Ls | Rs | Lb | Rb | Lw | Rw | Tfl | Tfr | Tbl | Tbr | LFE,      //9.1.4
+    (int32u)-1, //22.2
+};
+static int32u Ac4_ch_mode_2_nonstd(int8u ch_mode)
+{
+    if (ch_mode>15)
+        return (int32u)-1;
+    return Ac4_ch_mode_2_nonstd_Values[ch_mode];
+}
+static string Ac4_nonstd_2_ch_mode_String(int32u nonstd_bed_channel_assignment_mask)
+{
+    if (!nonstd_bed_channel_assignment_mask)
+        return "Mono";
+    
+    string ToReturn="0.0.0";
+
+    for (int8u i=0; i<17; i++)
+    {
+        int32u Value=nonstd_bed_channel_assignment_mask&(1<<i);
+        if (Value)
+        {
+            int8u Pos;
+            switch (Value)
+            {
+                case LFE:
+                case LFE2:
+                    Pos=2;
+                    break;
+                case Tfl:
+                case Tfr:
+                case Tbr:
+                case Tbl:
+                    Pos=4;
+                    break;
+                default:
+                    Pos=0;
+            }
+            if (ToReturn[Pos]=='9')
+                ToReturn[Pos]='A'; 
+            else
+                ToReturn[Pos]++;
+        }
+    }
+
+    if (ToReturn[4]=='0')
+        ToReturn.resize(3);
+    switch (nonstd_bed_channel_assignment_mask&~LFE)
+    {
+        case L | R | C | Ls | Rs | Lb | Rb : ToReturn+=" 3/4/0"; break;
+        case L | R | C | Ls | Rs | Lw | Rw : ToReturn+=" 5/2/0"; break;
+        case L | R | C | Ls | Rs | Tl | Tr : ToReturn+=" 3/2/2"; break;
+    }
+    if (ToReturn.size()==9 && ToReturn[3]==' ' && (nonstd_bed_channel_assignment_mask&LFE))
+        ToReturn+=".1";
+
+    return ToReturn;
+}
 
 static const sized_array_string Ac4_presentation_config=
 {
@@ -458,6 +529,9 @@ static const char* AC4_nonstd_bed_channel_assignment_mask_ChannelLayout_List[17]
 };
 Ztring AC4_nonstd_bed_channel_assignment_mask_ChannelLayout(int32u nonstd_bed_channel_assignment_mask)
 {
+    if (!nonstd_bed_channel_assignment_mask)
+        return __T("M");
+    
     Ztring ToReturn;
 
     for (int8u i=0; i<17; i++)
@@ -522,14 +596,14 @@ static int32u AC4_bed_channel_assignment_mask_2_nonstd(int16u bed_channel_assign
 }
 static int32u AC4_bed_chan_assign_code_2_nonstd_Values[8]=
 {
-    0b0000000000000000,
-    0b0000000000000000,
-    0b0000000000000000,
-    0b0000110000111111,
-    0b0000000000000000,
-    0b0000000000000000,
-    0b0000000000000000,
-    0b0000000000000000,
+    L | R,                                      //Stereo
+    L | R | C,                                  //3.0
+    L | R | C | Ls | Rs | LFE,                  //5.1
+    L | R | C | Ls | Rs | Tl | Tr | LFE,                                        //5.1.2
+    L | R | C | Ls | Rs | Tfl | Tfr | Tbl | Tbr | LFE,                          //5.1.4
+    L | R | C | Ls | Rs | Lb | Rb | LFE,        //7.1 3/4/0
+    L | R | C | Ls | Rs | Lb | Rb | Lw | Rw | Tl | Tr | LFE,                    //7.1.2
+    L | R | C | Ls | Rs | Lb | Rb | Lw | Rw | Tfl | Tfr | Tbl | Tbr | LFE,      //7.1.4
 };
 static int32u AC4_bed_chan_assign_code_2_nonstd(int8u bed_chan_assign_code)
 {
@@ -602,14 +676,14 @@ void File_Ac4::Streams_Fill()
         string Summary;
         if (Presentation_Current.pres_ch_mode!=(int8u)-1)
         {
-            Summary=Value(Ac4_ch_mode, Presentation_Current.pres_ch_mode);
+            Summary=Value(Ac4_ch_mode_String, Presentation_Current.pres_ch_mode);
             if (Presentation_Current.pres_ch_mode>=11 && Presentation_Current.pres_ch_mode<=14)
             {
                 if (!Presentation_Current.b_pres_4_back_channels_present)
                     Summary[0]-=2;
                 if (!Presentation_Current.b_pres_centre_present)
                     Summary[0]-=1;
-                if (Presentation_Current.pres_top_channel_pairs !=2)
+                if (Presentation_Current.pres_top_channel_pairs!=2)
                     Summary[4]-=2*(2-Presentation_Current.pres_top_channel_pairs);
             }
         }
@@ -706,7 +780,7 @@ void File_Ac4::Streams_Fill()
                     Fill(Stream_Audio, 0, (P+" Downmix LtRtSurroundMixGain").c_str(), Value(Ac4_loro_centre_mixgain, D.ltrt_surround_mixgain, 1)+" dB");
                 }
                 if (D.lfe_mixgain!=(int8u)-1)
-                    Fill(Stream_Audio, 0, (P+" Downmix LfeMixGain").c_str(), Value(Ac4_loro_centre_mixgain, D.lfe_mixgain, 1)+" dB");
+                    Fill(Stream_Audio, 0, (P+" Downmix LfeMixGain").c_str(), Ztring::ToZtring(10-D.lfe_mixgain).To_UTF8()+" dB");
                 if (D.preferred_dmx_method!=(int8u)-1)
                     Fill(Stream_Audio, 0, (P+" Downmix PreferredDownmix").c_str(), Value(Ac4_preferred_dmx_method, D.preferred_dmx_method));
             }
@@ -784,6 +858,7 @@ void File_Ac4::Streams_Fill()
                     Fill(Stream_Audio, 0, (G+" BedChannelCount/String").c_str(), MediaInfoLib::Config.Language_Get(Ztring::ToZtring(num_channels_in_bed), __T(" channel")));
                     Fill_SetOptions(Stream_Audio, 0, (G+" BedChannelCount/String").c_str(), "Y NIN");
                     Fill(Stream_Audio, 0, (G+" BedChannelConfiguration").c_str(), BedChannelConfiguration);
+                    Fill(Stream_Audio, 0, (G+" ChannelMode").c_str(), Ac4_nonstd_2_ch_mode_String(Substream.nonstd_bed_channel_assignment_mask));
                     num_channels_in_bed_Total+=num_channels_in_bed;
                 }
             }
@@ -810,10 +885,10 @@ void File_Ac4::Streams_Fill()
     }
     for (map<int8u, audio_substream>::iterator Substream_Info=AudioSubstreams.begin(); Substream_Info!=AudioSubstreams.end(); Substream_Info++)
     {
-        string ChannelLayout;
+        string Summary;
         if (bitstream_version<=1)
         {
-            ChannelLayout=Value(Ac4_ch_mode, Substream_Info->second.GroupInfo.ch_mode);
+            Summary=Value(Ac4_ch_mode_String, Substream_Info->second.GroupInfo.ch_mode);
         }
         else
         {
@@ -825,7 +900,7 @@ void File_Ac4::Streams_Fill()
                     const group_substream& Substream=Group.Substreams[s];
                     if (Substream.substream_index==Substream_Info->first && Substream.ch_mode!=(int8u)-1)
                     {
-                        string Summary2=Value(Ac4_ch_mode, Substream.ch_mode);
+                        string Summary2=Value(Ac4_ch_mode_String, Substream.ch_mode);
                         if (Substream_Info->second.GroupInfo.ch_mode>=11 && Substream_Info->second.GroupInfo.ch_mode<=14)
                         {
                             if (!Substream_Info->second.GroupInfo.b_4_back_channels_present)
@@ -835,18 +910,17 @@ void File_Ac4::Streams_Fill()
                             if (Substream_Info->second.GroupInfo.top_channel_pairs!=2)
                                 Summary2[4]-=2*(2-Substream_Info->second.GroupInfo.top_channel_pairs);
                         }
-                        if (Summary2!=ChannelLayout)
+                        if (Summary2!=Summary)
                         {
-                            if (!ChannelLayout.empty())
-                                ChannelLayout+=" / ";
-                            ChannelLayout+=Summary2;
+                            if (!Summary.empty())
+                                Summary+=" / ";
+                            Summary+=Summary2;
                         }
                     }
                 }
             }
         }
 
-        string Summary=ChannelLayout;
         if (Summary.empty() && Substream_Info->second.GroupInfo.n_objects_code!=(int8u)-1)
         {
             Summary=Ztring::ToZtring(objs_to_n_objects(Substream_Info->second.GroupInfo.n_objects_code, Substream_Info->second.GroupInfo.b_lfe)).To_UTF8()+" objects";
@@ -866,10 +940,14 @@ void File_Ac4::Streams_Fill()
         Fill_SetOptions(Stream_Audio, 0, (S+" Index").c_str(), "N NIY");
         Fill(Stream_Audio, 0, (S+" ID").c_str(), AudioSubstream_Pos+1);
         Fill_SetOptions(Stream_Audio, 0, (S+" ID").c_str(), "N NIY");
-        if (!ChannelLayout.empty())
-            Fill(Stream_Audio, 0, (S+" ChannelLayout").c_str(), ChannelLayout); //TODO layout
-        if (Substream_Info->second.GroupInfo.ch_mode==(int8u)-1 && !Substream_Info->second.GroupInfo.b_ajoc && Substream_Info->second.GroupInfo.n_objects_code!=(int8u)-1)
+        if (Substream_Info->second.GroupInfo.ch_mode!=(int8u)-1)
         {
+            //Channel based
+            Fill(Stream_Audio, 0, (S + " ChannelLayout").c_str(), AC4_nonstd_bed_channel_assignment_mask_ChannelLayout(Ac4_ch_mode_2_nonstd(Substream_Info->second.GroupInfo.ch_mode))); //TODO layout
+        }
+        else if (Substream_Info->second.GroupInfo.ch_mode==(int8u)-1 && !Substream_Info->second.GroupInfo.b_ajoc && Substream_Info->second.GroupInfo.n_objects_code!=(int8u)-1)
+        {
+            //Object based
             int8u n_objects=objs_to_n_objects(Substream_Info->second.GroupInfo.n_objects_code, Substream_Info->second.GroupInfo.b_lfe);
             Fill(Stream_Audio, 0, (S+" NumberOfObjects").c_str(), n_objects);
             if (Substream_Info->second.GroupInfo.nonstd_bed_channel_assignment_mask!=(int32u)-1)
@@ -1426,10 +1504,7 @@ void File_Ac4::ac4_presentation_info()
         }
         Param_Info1(Value(Ac4_presentation_config, P.presentation_config));
     }
-
     Get_VB (P.presentation_version,                             "presentation_version");
-    Fill(Stream_Audio, 0, "presentation_version", P.presentation_version, 10, true);//TODO remove
-
     if (!b_single_substream && P.presentation_config==6)
     {
         b_add_emdf_substreams=true;
@@ -1547,15 +1622,10 @@ void File_Ac4::ac4_presentation_v1_info()
         }
         Param_Info1(Value(Ac4_presentation_config, P.presentation_config));
     }
-
     if (bitstream_version!=1)
-    {
-        Get_VB (P.presentation_version,     "presentation_version");
-        Fill(Stream_Audio, 0, "presentation_version", P.presentation_version, 10, true);//TODO remove
-    }
+        Get_VB (P.presentation_version,                         "presentation_version");
     else
         P.presentation_version=0;
-
     if (!b_single_substream_group && P.presentation_config==6)
     {
         b_add_emdf_substreams=true;
@@ -1564,20 +1634,16 @@ void File_Ac4::ac4_presentation_v1_info()
     {
         if (bitstream_version!=1)
             Skip_S1(3,                                          "mdcompat");
-
         TEST_SB_SKIP(                                           "b_presentation_id");
             Skip_V4(2,                                          "presentation_id");
         TEST_SB_END();
-
         frame_rate_multiply_info();
         frame_rate_fractions_info();
         P.Substreams.resize(P.Substreams.size()+1);
         emdf_info(P.Substreams.back());
-
         TEST_SB_SKIP(                                           "b_presentation_filter");
             Skip_SB(                                            "b_enable_presentation");
         TEST_SB_END();
-
         if (b_single_substream_group)
         {
             ac4_sgi_specifier(P);
@@ -1594,29 +1660,29 @@ void File_Ac4::ac4_presentation_v1_info()
                 ac4_sgi_specifier(P);
                 ac4_sgi_specifier(P);
                 n_substream_groups=2;
-            break;
+                break;
             case 1: // Main + DE
                 ac4_sgi_specifier(P);
                 ac4_sgi_specifier(P);
                 n_substream_groups=1;
-            break;
+                break;
             case 2: // Main + Associated Audio
                 ac4_sgi_specifier(P);
                 ac4_sgi_specifier(P);
                 n_substream_groups=2;
-            break;
+                break;
             case 3: // Music and Effects + Dialogue + Associated Audio
                 ac4_sgi_specifier(P);
                 ac4_sgi_specifier(P);
                 ac4_sgi_specifier(P);
                 n_substream_groups=3;
-            break;
+                break;
             case 4: // Main + DE + Associated Audio
                 ac4_sgi_specifier(P);
                 ac4_sgi_specifier(P);
                 ac4_sgi_specifier(P);
                 n_substream_groups=2;
-            break;
+                break;
             case 5: // Arbitrary number of roles and substream groups
                 int8u n_substream_groups_minus2;
                 Get_S1 (2, n_substream_groups_minus2,           "n_substream_groups_minus2");
@@ -1631,7 +1697,7 @@ void File_Ac4::ac4_presentation_v1_info()
 
                 for (int8u Pos=0; Pos<n_substream_groups; Pos++)
                     ac4_sgi_specifier(P);
-            break;
+                break;
             default: // EMDF and other data
                 presentation_config_ext_info(P.presentation_config);
             break;
@@ -1653,7 +1719,6 @@ void File_Ac4::ac4_presentation_v1_info()
             n_add_emdf_substreams32+=4;
             n_add_emdf_substreams=(int8u)n_add_emdf_substreams32;
         }
-
         size_t Offset=P.Substreams.size();
         P.Substreams.resize(Offset+n_add_emdf_substreams);
         for (int8u Pos=0; Pos<n_add_emdf_substreams; Pos++)
@@ -1707,7 +1772,7 @@ void File_Ac4::ac4_substream_info(presentation& P, int8u& substream_index)
             Get_V4(2, channel_mode32,                           "channel_mode");
             ch_mode+=(int8u)channel_mode32;
         }
-        Param_Info1(Value(Ac4_ch_mode, ch_mode));
+        Param_Info1(Value(Ac4_ch_mode_String, ch_mode));
 
         if (fs_index)
         {
@@ -1870,9 +1935,9 @@ void File_Ac4::ac4_substream_info_chan(group_substream& G, bool b_substreams_pre
                     G.ch_mode_core=6;
                     break;
     }
-    Param_Info1(Value(Ac4_ch_mode, G.ch_mode));
+    Param_Info1(Value(Ac4_ch_mode_String, G.ch_mode));
     if (G.ch_mode_core!=(int8u)-1)
-        Param_Info1(Value(Ac4_ch_mode, G.ch_mode_core));
+        Param_Info1(Value(Ac4_ch_mode_String, G.ch_mode_core));
     if (G.ch_mode>=11 && G.ch_mode<=14)
     {
         Get_SB (   G.b_4_back_channels_present,                 "b_4_back_channels_present");

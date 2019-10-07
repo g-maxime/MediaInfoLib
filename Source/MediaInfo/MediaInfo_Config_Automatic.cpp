@@ -1236,6 +1236,7 @@ void MediaInfo_Config_DefaultLanguage (Translation &Info)
     "MaxGain;Max gain\n"
     "ChannelConfiguration;Channel configuration\n"
     "NumberOfObjects;Number of objects\n"
+    "ChannelMode;Channel mode\n"
     ";\n"
     ";\n"
     ";\n"
