@@ -215,9 +215,9 @@ static const sized_array_string Ac4_ch_mode_String=
 };
 enum ch
 {
-    C    = 1 << 0,
-    L    = 1 << 1,
-    R    = 1 << 2,
+    L    = 1 << 0,
+    R    = 1 << 1,
+    C    = 1 << 2,
     LFE  = 1 << 3,
     Ls   = 1 << 4,
     Rs   = 1 << 5,
@@ -349,7 +349,7 @@ NULL,
 NULL,
 NULL,
 "Manual",
-"Consumer leveller",
+"Consumer leveler",
 };
 
 static const sized_array_string Ac4_loud_dialgate_prac_type=
@@ -643,7 +643,8 @@ string AC4_nonstd_2_desc(int32u nonstd_bed_channel_assignment_mask)
 //---------------------------------------------------------------------------
 void File_Ac4::Streams_Fill()
 {
-    //
+    //I-Frames
+    /* Old, not supporting non natural I-Frames rate
     bool IFrames_IsVariable=false;
     size_t IFrames_Value=0;
     if (IFrames.size()>1)
@@ -656,6 +657,35 @@ void File_Ac4::Streams_Fill()
                 break;
             }
     }
+    */
+    Ztring IFrames_Value;
+    if (IFrames.size()>1)
+    {
+        set<size_t> IFrames_IsVariable;
+        for (size_t i=1; i<IFrames.size(); i++)
+            IFrames_IsVariable.insert(IFrames[i]-IFrames[i-1]);
+        if (IFrames_IsVariable.size()==1)
+            IFrames_Value=Ztring::ToZtring(*IFrames_IsVariable.begin())+__T(" frames");
+        else if (IFrames_IsVariable.size()==2)
+        {
+            set<size_t>::iterator It=IFrames_IsVariable.begin();
+            size_t Value1=*It;
+            It++;
+            size_t Value2=*It;
+            if (Value1+1==Value2)
+            {
+                if ((size_t)Ac4_frame_rate[fs_index][frame_rate_index]==Value1) // if Frame rate is in I-frame interval, use frame rate))
+                    IFrames_Value=Ztring::ToZtring(Ac4_frame_rate[fs_index][frame_rate_index], 3);
+                else
+                    IFrames_Value=Ztring::ToZtring(Value1)+__T('/')+Ztring::ToZtring(Value2);
+                IFrames_Value+=__T(" frames");
+            }
+            else
+                IFrames_Value=__T("Variable");
+        }
+        else
+            IFrames_Value=__T("Variable");
+    }
 
     Fill(Stream_General, 0, General_Format, "AC-4");
 
@@ -665,8 +695,12 @@ void File_Ac4::Streams_Fill()
     Fill(Stream_Audio, 0, Audio_Format_Version, __T("Version ")+Ztring::ToZtring(bitstream_version));
     Fill(Stream_Audio, 0, Audio_SamplingRate, fs_index?48000:44100);
     Fill(Stream_Audio, 0, Audio_FrameRate, Ac4_frame_rate[fs_index][frame_rate_index]);
-    if (IFrames_Value)
+    /* Old, not supporting non natural I-Frames rate
+    if (IFrames_Value_Float)
         Fill(Stream_Audio, 0, "IFrameInterval", IFrames_IsVariable?Ztring(__T("Variable")):(Ztring::ToZtring(IFrames_Value)+__T(" frames")));
+    */
+    if (!IFrames_Value.empty())
+        Fill(Stream_Audio, 0, "IFrameInterval", IFrames_Value);
     Fill(Stream_Audio, 0, "NumberOfPresentations", Presentations.size());
     Fill(Stream_Audio, 0, "NumberOfSubstreams", AudioSubstreams.size());
 
@@ -705,7 +739,7 @@ void File_Ac4::Streams_Fill()
 
         string P=Ztring(__T("Presentation")+Ztring::ToZtring(p)).To_UTF8();
         Fill(Stream_Audio, 0, P.c_str(), Summary);
-        if (Presentation_Current.LoudnessInfo.dialnorm_bits!=(int8u)-1) //TODO: not LoudnessInfo
+        if (Presentation_Current.LoudnessInfo.dialnorm_bits!=(int8u)-1)
             Fill(Stream_Audio, 0, (P+" DialogueNormalization").c_str(), -0.25*Presentation_Current.LoudnessInfo.dialnorm_bits, 2);
         if (!Presentation_Current.Language.empty())
         {
@@ -802,30 +836,38 @@ void File_Ac4::Streams_Fill()
         string G=Ztring(__T("Group")+Ztring::ToZtring(g)).To_UTF8();
         const group& Group=Groups[g];
         string Summary;
-        /*
-        for (size_t p=0; p<Presentations.size(); p++)
+        if (Group.ContentInfo.content_classifier!=(int8u)-1)
+            Summary=Value(Ac4_content_classifier, Group.ContentInfo.content_classifier);
+        if (Summary.empty())
         {
-            const presentation& Presentation_Current=Presentations[p];
-            for (size_t s=0; s<Presentation_Current.substream_group_info_specifiers.size(); s++)
+            //Check content_classifer from presentations
+            for (size_t p=0; p<Presentations.size(); p++)
             {
-                const size_t& Specifier=Presentation_Current.substream_group_info_specifiers[s];
-                if (Specifier==g)
+                const presentation& Presentation_Current=Presentations[p];
+                for (size_t s=0; s<Presentation_Current.substream_group_info_specifiers.size(); s++)
                 {
-                    string Summary2=Presentation_Current.presentation_config==(int8u)-1?"Main":Value(Ac4_presentation_config, Presentation_Current.presentation_config);
-                    if (Summary2!=Summary)
+                    const size_t& Specifier=Presentation_Current.substream_group_info_specifiers[s];
+                    if (Specifier==g)
                     {
-                        if (!Summary.empty())
-                            Summary+=" / ";
-                        Summary+=Summary2;
+                        string Summary2=Presentation_Current.presentation_config==(int8u)-1?"Main":Value(Ac4_presentation_config, Presentation_Current.presentation_config);
+                        if (Summary2!=Summary)
+                        {
+                            if (!Summary.empty())
+                                Summary+=" / ";
+                            Summary+=Summary2;
+                        }
                     }
                 }
             }
+
+            if (Summary.empty())
+                Summary="?";
         }
-        */
-        Summary=Value(Ac4_content_classifier, Group.ContentInfo.content_classifier);
         if (!Group.ContentInfo.language_tag_bytes.empty())
         {
-            Summary+=" (";
+            if (!Summary.empty())
+                Summary+=' ';
+            Summary+='(';
             Summary+=MediaInfoLib::Config.Iso639_Translate(Ztring().From_UTF8(Group.ContentInfo.language_tag_bytes)).To_UTF8();
             Summary+=')';
         }
@@ -947,7 +989,7 @@ void File_Ac4::Streams_Fill()
         if (Substream_Info->second.GroupInfo.ch_mode!=(int8u)-1)
         {
             //Channel based
-            Fill(Stream_Audio, 0, (S + " ChannelLayout").c_str(), AC4_nonstd_bed_channel_assignment_mask_ChannelLayout(Ac4_ch_mode_2_nonstd(Substream_Info->second.GroupInfo.ch_mode))); //TODO layout
+            Fill(Stream_Audio, 0, (S + " ChannelLayout").c_str(), AC4_nonstd_bed_channel_assignment_mask_ChannelLayout(Ac4_ch_mode_2_nonstd(Substream_Info->second.GroupInfo.ch_mode)));
         }
         else if (Substream_Info->second.GroupInfo.ch_mode==(int8u)-1 && !Substream_Info->second.GroupInfo.b_ajoc && Substream_Info->second.GroupInfo.n_objects_code!=(int8u)-1)
         {
@@ -1073,7 +1115,7 @@ void File_Ac4::Synched_Init()
     Accept();
     
     if (!Frame_Count_Valid)
-        Frame_Count_Valid=Config->ParseSpeed>=0.3?32:2;
+        Frame_Count_Valid=Config->ParseSpeed>=0.3?128:2;
 
     //FrameInfo
     PTS_End=0;
@@ -1171,6 +1213,8 @@ void File_Ac4::Header_Parse()
 //---------------------------------------------------------------------------
 void File_Ac4::Data_Parse()
 {
+    Element_Info(Frame_Count);
+
     //CRC
     if (Element_Code==0xAC41)
         Element_Size-=2;
@@ -1188,8 +1232,10 @@ void File_Ac4::Data_Parse()
 
     Substream_Size.clear();
 
+    if (!Trusted_Get() && Retrieve_Const(Stream_Audio, 0, "NOK").empty())
+        Fill(Stream_Audio, 0, "NOK", "parsing", -1, true, true);//TODO remove
+    Frame_Count++;
     FILLING_BEGIN();
-        Frame_Count++;
         if (!Status[IsFilled] && Frame_Count>=Frame_Count_Valid)
         {
             Fill();
@@ -1211,7 +1257,7 @@ void File_Ac4::raw_ac4_frame()
         return; //Not parsing this frame
     }
 
-    size_t byte_align=BS->Remain()%8;
+    size_t byte_align=Data_BS_Remain()%8;
     if (byte_align)
         Skip_S1(byte_align,                                     "byte_align");
     BS_End();
@@ -1335,11 +1381,15 @@ void File_Ac4::ac4_toc()
     if (!b_iframe_global)
     {
         //We parse only Iframes
+        Element_End0();
         BS_End();
         Element_Offset=Element_Size;
         return;
     }
 
+    Element_Level-=2;
+    Element_Info1("I");
+    Element_Level+=2;
     IFrames.push_back(Frame_Count); //TODO
     Presentations.clear();
     Groups.clear();
@@ -1396,7 +1446,7 @@ void File_Ac4::ac4_toc()
 
     substream_index_table();
 
-    size_t byte_align=BS->Remain()%8;
+    size_t byte_align=Data_BS_Remain()%8;
     if (byte_align)
         Skip_S1(byte_align,                                     "byte_align");
 
@@ -2624,7 +2674,7 @@ void File_Ac4::ac4_presentation_substream(size_t substream_index, size_t Substre
             Get_V4(2, add_data_bytes32,                         "add_data_bytes32");
             add_data_bytes+=(int8u)add_data_bytes32;
         }
-        size_t byte_align=BS->Remain()%8;
+        size_t byte_align=Data_BS_Remain()%8;
         if (byte_align)
             Skip_S1(byte_align,                                 "byte_align");
         Skip_BS(add_data_bytes*8,                               "add_data");
@@ -2681,17 +2731,19 @@ void File_Ac4::ac4_presentation_substream(size_t substream_index, size_t Substre
         TEST_SB_END();
     TEST_SB_END();
 
-    if (P.pres_ch_mode==(int8u)-1 || P.pres_ch_mode<=4 || BS->Remain()>=4) //TODO: remove this when parsing issue is understood
+    if (P.pres_ch_mode==(int8u)-1 || P.pres_ch_mode<=4 || Data_BS_Remain()>=4) //TODO: remove this when parsing issue is understood
     {
     custom_dmx_data(P.Dmx, P.pres_ch_mode, P.pres_ch_mode_core, P.b_pres_4_back_channels_present, P.pres_top_channel_pairs, b_pres_has_lfe);
     loud_corr(P.pres_ch_mode, P.pres_ch_mode_core, false/* TODO: b_objects? */);
+    if (!Trusted_Get() && P.LoudnessInfo.truepk!=(int16u)-1) //TODO: remove this when parsing issue is understood
+        Fill(Stream_Audio, 0, "NOK", "truepk", -1, true, true);//TODO remove
     }
     else
     {
+        Skip_BS(Data_BS_Remain(), "Problem");
         Fill(Stream_Audio, 0, "NOK", "presentation_substream", -1, true, true);//TODO remove
-
     }
-    size_t byte_align=BS->Remain()%8;
+    size_t byte_align=Data_BS_Remain()%8;
     if (byte_align)
         Skip_S1(byte_align,                                     "byte_align");
     BS_End();
@@ -3483,9 +3535,9 @@ void File_Ac4::drc_data(drc_info& DrcInfo)
 
             if (drc_version<=1)
             {
-                Remain_Before=BS->Remain();
+                Remain_Before=Data_BS_Remain();
                 drc_gains(DrcInfo.Decoders[Pos]);
-                used_bits=Remain_Before-BS->Remain();
+                used_bits=Remain_Before-Data_BS_Remain();
             }
 
             if (drc_version>=1)
@@ -3617,7 +3669,6 @@ void File_Ac4::further_loudness_info(loudness_info& L, bool sus_ver, bool b_pres
     {
         Skip_SB(                                                "b_loudcorr_dialgate");
     }
-
     TEST_SB_SKIP(                                               "b_loudrelgat");
         Get_S2 (11, L.loudrelgat,                               "loudrelgat");
     TEST_SB_END();
@@ -3626,59 +3677,52 @@ void File_Ac4::further_loudness_info(loudness_info& L, bool sus_ver, bool b_pres
         Get_S2 (11, L.loudspchgat,                              "loudspchgat");
         Get_S1 (3, L.loudspchgat_dialgate_prac_type,            "dialgate_prac_type");
     TEST_SB_END();
-
     TEST_SB_SKIP(                                               "b_loudstrm3s");
         Skip_S2(11,                                             "loudstrm3s");
     TEST_SB_END();
-
     TEST_SB_SKIP(                                               "b_max_loudstrm3s");
         Skip_S2(11,                                             "max_loudstrm3s");
     TEST_SB_END();
-
     TEST_SB_SKIP(                                               "b_truepk");
         Get_S2 (11, L.truepk,                                   "truepk");
     TEST_SB_END();
-
     TEST_SB_SKIP(                                               "b_max_truepk");
         Skip_S2(11,                                             "max_truepk");
     TEST_SB_END();
-
     if (b_presentation_ldn || !sus_ver)
     {
         TEST_SB_SKIP(                                           "b_prgmbndy");
+            Element_Begin1("prgmbndy_bits");
+            int32u prgmbndy=1;
             bool prgmbndy_bit=false;
-            while(!prgmbndy_bit) // TODO: skip all bits in one time
+            while(!prgmbndy_bit)
                 Get_SB(prgmbndy_bit,                            "prgmbndy_bit");
-
+            Element_Info1(prgmbndy);
+            Element_End0();
             Skip_SB(                                            "b_end_or_start");
             TEST_SB_SKIP(                                       "b_prgmbndy_offset");
                 Skip_S2(11,                                     "prgmbndy_offset");
             TEST_SB_END();
         TEST_SB_END();
     }
-
     TEST_SB_SKIP(                                               "b_lra");
         Get_S2 (10, L.lra,                                      "lra");
         Get_S1 ( 3, L.lra_prac_type,                            "lra_prac_type");
     TEST_SB_END();
-
     TEST_SB_SKIP(                                               "b_loudmntry");
         Skip_S2(11,                                             "loudmntry");
     TEST_SB_END();
-
     TEST_SB_SKIP(                                               "b_max_loudmntry");
         Get_S2 (11, L.max_loudmntry,                            "max_loudmntry");
     TEST_SB_END();
-
     if (sus_ver)
     {
         TEST_SB_SKIP(                                           "b_rtllcomp");
             Skip_S1(8,                                          "rtllcomp");
         TEST_SB_END();
     }
-
     TEST_SB_SKIP(                                               "b_extension");
-        int8u e_bits_size; // TODO: check if size is sufficient
+        int8u e_bits_size;
         Get_S1(5, e_bits_size,                                  "e_bits_size");
         if (e_bits_size==31)
         {
@@ -3687,7 +3731,6 @@ void File_Ac4::further_loudness_info(loudness_info& L, bool sus_ver, bool b_pres
             e_bits_size32+=31;
             e_bits_size=(int8u)e_bits_size32;
         }
-
         if (!sus_ver)
         {
             e_bits_size--;

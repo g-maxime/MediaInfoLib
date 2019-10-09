@@ -1339,6 +1339,7 @@ void MediaInfo_Config_Format (InfoMap &Info)
     "YUV;;;V;;;;;;Lossless\n"
     "AAC;;;A;;Advanced Audio Codec;;;;Lossy\n"
     "AC-3;;;A;Ac3;Audio Coding 3;ac3;;https://en.wikipedia.org/wiki/AC3;Lossy\n"
+    "AC-4;;;A;Ac4;Audio Coding 4;ac4;;;Lossy\n"
     "ADIF;;;A;Adif;Audio Data Interchange Format;;;\n"
     "ADTS;;;A;Adts;Audio Data Transport Stream;aac aacp adts;;\n"
     "ALS;;;A;Als;MPEG-4 Audio Lossless Coding;als;;http://www.nue.tu-berlin.de/forschung/projekte/lossless/mp4als.html#downloads;Lossless\n"
