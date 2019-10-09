@@ -1257,7 +1257,6 @@ const Ztring &File__Analyze::Retrieve_Const (stream_t StreamKind, size_t StreamP
 {
     //Integrity
     if (StreamKind>=Stream_Max
-     || StreamPos>=(*Stream)[StreamKind].size()
      || Parameter==NULL
      || Parameter[0]=='\0')
         return MediaInfoLib::Config.EmptyString_Get();
@@ -1268,6 +1267,14 @@ const Ztring &File__Analyze::Retrieve_Const (stream_t StreamKind, size_t StreamP
     size_t Parameter_Pos=MediaInfoLib::Config.Info_Get(StreamKind).Find(Parameter_Local);
     if (Parameter_Pos==Error)
     {
+        if (StreamPos==(*Stream)[StreamKind].size())
+        {
+            for (size_t Pos=0; Pos<Fill_Temp[StreamKind].size(); Pos++)
+                if (Fill_Temp[StreamKind][Pos].Parameter==Parameter_Local)
+                    return Fill_Temp[StreamKind][Pos].Value;
+        }
+        if (StreamPos>=(*Stream)[StreamKind].size())
+            return MediaInfoLib::Config.EmptyString_Get();
         Parameter_Pos=(*Stream_More)[StreamKind][StreamPos].Find(Parameter_Local);
         if (Parameter_Pos==Error)
             return MediaInfoLib::Config.EmptyString_Get();
