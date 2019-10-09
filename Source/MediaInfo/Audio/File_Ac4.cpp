@@ -2741,12 +2741,10 @@ void File_Ac4::ac4_presentation_substream(size_t substream_index, size_t Substre
         TEST_SB_END();
     TEST_SB_END();
 
+    custom_dmx_data(P.Dmx, P.pres_ch_mode, P.pres_ch_mode_core, P.b_pres_4_back_channels_present, P.pres_top_channel_pairs, b_pres_has_lfe);
     if (P.pres_ch_mode==(int8u)-1 || P.pres_ch_mode<=4 || Data_BS_Remain()>=4) //TODO: remove this when parsing issue is understood
     {
-    custom_dmx_data(P.Dmx, P.pres_ch_mode, P.pres_ch_mode_core, P.b_pres_4_back_channels_present, P.pres_top_channel_pairs, b_pres_has_lfe);
     loud_corr(P.pres_ch_mode, P.pres_ch_mode_core, false/* TODO: b_objects? */);
-    if (!Trusted_Get() && P.LoudnessInfo.truepk!=(int16u)-1) //TODO: remove this when parsing issue is understood
-        Fill(Stream_Audio, 0, "NOK", "truepk", -1, true, true);//TODO remove
     }
     else
     {
