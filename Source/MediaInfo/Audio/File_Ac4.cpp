@@ -3437,14 +3437,14 @@ void File_Ac4::loud_corr(int8u pres_ch_mode, int8u pres_ch_mode_core, bool b_obj
         TEST_SB_END();
     }
 
-    if (pres_ch_mode!=(int8u)-1 && pres_ch_mode>4)
+    if (pres_ch_mode_core!=(int8u)-1 && pres_ch_mode_core>4)
     {
         TEST_SB_SKIP(                                           "b_loud_comp");
             Skip_S1(5,                                          "loud_corr_5_X_2");
         TEST_SB_END();
     }
 
-    if (pres_ch_mode!=(int8u)-1 && pres_ch_mode>2)
+    if (pres_ch_mode_core!=(int8u)-1 && pres_ch_mode_core>2)
     {
         TEST_SB_SKIP(                                           "b_loud_comp");
             Skip_S1(5,                                          "loud_corr_5_X");
