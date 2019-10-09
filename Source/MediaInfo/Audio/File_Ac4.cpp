@@ -183,6 +183,7 @@ static const variable_size Ac4_channel_mode2[]=
 static const sized_array_string Ac4_content_classifier=
 {
 (const char*)8,
+/*
 "CM",
 "ME",
 "VI",
@@ -191,6 +192,15 @@ static const sized_array_string Ac4_content_classifier=
 "C",
 "E",
 "VO",
+*/
+    "Main",
+    "Music and Effects",
+    "Visually Impaired",
+    "Hearing Impaired",
+    "Dialogue",
+    "Commentary",
+    "Emergency",
+    "Voice Over",
 };
 
 static const sized_array_string Ac4_ch_mode_String=
