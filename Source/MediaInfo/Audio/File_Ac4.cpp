@@ -1391,6 +1391,7 @@ void File_Ac4::ac4_toc()
         bitstream_version=(int8u)bitstream_version32;
     }
     Fill(Stream_Audio, 0, "bitstream_version", bitstream_version, 10, true);//TODO remove
+    Fill_SetOptions(Stream_Audio, 0, "bitstream_version", "N NTN"); //TODO remove
     Get_S2 (10, sequence_counter,                               "sequence_counter");
     TEST_SB_SKIP(                                               "b_wait_frames");
         int8u wait_frames;
