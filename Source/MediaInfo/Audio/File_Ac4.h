@@ -491,6 +491,7 @@ private :
     {
         substream_type_t substream_type;
         int8u substream_index;
+        bool b_iframe;
         bool sus_ver;
 
         // b_channel_coded
@@ -535,11 +536,6 @@ private :
     //Audio substreams
     struct audio_substream
     {
-        group_substream GroupInfo;
-
-        content_info ContentInfo;
-        bool b_iframe;
-
         loudness_info LoudnessInfo;
         drc_info DrcInfo;
         de_info DeInfo;
@@ -570,7 +566,7 @@ private :
     void ac4_presentation_info();
     void ac4_presentation_v1_info();
     void ac4_sgi_specifier(presentation& P);
-    void ac4_substream_info(presentation& P, int8u& substream_index);
+    void ac4_substream_info(presentation& P);
     void ac4_substream_group_info(presentation* P=NULL);
     void ac4_hsf_ext_substream_info(group_substream& G, bool b_substreams_present);
     void ac4_substream_info_chan(group_substream& G, bool b_substreams_present);
