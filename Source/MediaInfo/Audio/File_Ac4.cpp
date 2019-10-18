@@ -180,10 +180,22 @@ static const variable_size Ac4_channel_mode2[]=
     {0, 0b111111111},
 };
 
+enum content_classifier
+{
+    CM,
+    ME,
+    VI,
+    HI,
+    D,
+    Co,
+    E,
+    VO,
+    A, //Generic "Associate"
+};
 static const sized_array_string Ac4_content_classifier=
 {
-(const char*)8,
 /*
+(const char*)8,
 "CM",
 "ME",
 "VI",
@@ -193,6 +205,7 @@ static const sized_array_string Ac4_content_classifier=
 "E",
 "VO",
 */
+    (const char*)9,
     "Main",
     "Music and Effects",
     "Visually Impaired",
@@ -201,6 +214,7 @@ static const sized_array_string Ac4_content_classifier=
     "Commentary",
     "Emergency",
     "Voice Over",
+    "Associate", //Generic "Associate"
 };
 
 static const sized_array_string Ac4_ch_mode_String=
@@ -328,6 +342,17 @@ static const sized_array_string Ac4_presentation_config=
 "Main + Dialogue Enhancement + Associate",
 "Arbitrary Substream Groups",
 "EMDF Only",
+};
+
+static const int8u Ac4_presentation_config_split[8][3]=
+{
+    {       ME,        D,  (int8u)-1},
+    {       CM,        D,  (int8u)-1},
+    {       CM,        A,  (int8u)-1},
+    {       ME,        D,          A},
+    {       CM,        D,          A},
+    {(int8u)-1, (int8u)-1, (int8u)-1},
+    {(int8u)-1, (int8u)-1, (int8u)-1},
 };
 
 static const sized_array_string Ac4_drc_eac3_profile=
@@ -718,6 +743,8 @@ void File_Ac4::Streams_Fill()
     {
         const presentation& Presentation_Current=Presentations[p];
         string Summary;
+
+        //Summary pres_ch_mode
         if (Presentation_Current.pres_ch_mode!=(int8u)-1)
         {
             Summary=Value(Ac4_ch_mode_String, Presentation_Current.pres_ch_mode);
@@ -737,7 +764,40 @@ void File_Ac4::Streams_Fill()
         }
         if (!Summary.empty())
             Summary+=' ';
+
+        //Summary presentation_config
+        string presentation_config_String;
+        for (size_t g=0; g<Presentation_Current.substream_group_info_specifiers.size(); g++)
+        {
+            const group& Group=Groups[g];
+            if (g)
+                presentation_config_String+=" + ";
+            if (Group.ContentInfo.content_classifier!=(int8u)-1)
+            {
+                int8u content_classifier=Group.ContentInfo.content_classifier;
+                if (Presentation_Current.presentation_config!=(int8u)-1 && g<3 && Ac4_presentation_config_split[Presentation_Current.presentation_config][g]==A
+                  && (content_classifier==VI ||content_classifier==HI || content_classifier==Co))
+                    content_classifier=A;
+                presentation_config_String+=Value(Ac4_content_classifier, content_classifier);
+                if (Group.ContentInfo.content_classifier==D && (Presentation_Current.presentation_config==1 || Presentation_Current.presentation_config==4) && g==1)
+                    presentation_config_String+=" Enhancement";
+            }
+            else if (Presentation_Current.presentation_config!=(int8u)-1 && g<3 && Ac4_presentation_config_split[Presentation_Current.presentation_config][g]!=(int8u)-1)
+            {
+                presentation_config_String+=Value(Ac4_content_classifier, Ac4_presentation_config_split[Presentation_Current.presentation_config][g]);
+                if (Ac4_presentation_config_split[Presentation_Current.presentation_config][g]==D && (Presentation_Current.presentation_config==1 || Presentation_Current.presentation_config==4) && g==1)
+                    presentation_config_String+=" Enhancement";
+            }
+            else if (Presentation_Current.presentation_config==(int8u)-1)
+                presentation_config_String+="Main";
+            else
+                presentation_config_String+="?";
+        }
+        if (presentation_config_String!=(Presentation_Current.presentation_config==(int8u)-1?"Main":Value(Ac4_presentation_config, Presentation_Current.presentation_config)))
+            Fill(Stream_Audio, 0, "NOK", "presentation_config", -1, true, true);//TODO remove
         Summary+=Presentation_Current.presentation_config==(int8u)-1?"Main":Value(Ac4_presentation_config, Presentation_Current.presentation_config);
+
+        //Summary language
         if (!Presentation_Current.Language.empty())
         {
             Summary+=" (";
