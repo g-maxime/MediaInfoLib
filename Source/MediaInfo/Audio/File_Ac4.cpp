@@ -1642,14 +1642,12 @@ void File_Ac4::ac4_presentation_info()
 
         if (b_single_substream)
         {
-            int8u substream_index;
             ac4_substream_info(P);
         }
         else
         {
             bool b_hsf_ext;
             Get_SB(b_hsf_ext,                                   "b_hsf_ext");
-            int8u substream_index;
             switch (P.presentation_config) // TODO: Symplify
             {
             case 0: // Dry main + Dialog
@@ -2039,7 +2037,6 @@ void File_Ac4::ac4_substream_info_chan(group_substream& G, bool b_substreams_pre
 {
     G.substream_type=Type_Ac4_Substream;
 
-    int8u substream_index;
     Element_Begin1(                                             "ac4_substream_info_chan");
     Get_V4(Ac4_channel_mode2, G.ch_mode,                          "channel_mode");
     if (G.ch_mode==16)
@@ -2097,6 +2094,7 @@ void File_Ac4::ac4_substream_info_chan(group_substream& G, bool b_substreams_pre
         Skip_SB(                                                "b_audio_ndot");
     if (b_substreams_present)
     {
+        int8u substream_index;
         Get_S1(2, substream_index,                              "substream_index");
         if (substream_index==3)
         {
@@ -2183,7 +2181,6 @@ void File_Ac4::ac4_substream_info_obj(group_substream& G, bool b_substreams_pres
     G.substream_type=Type_Ac4_Substream;
 
     Element_Begin1(                                             "ac4_substream_info_obj");
-    int8u substream_index;
     Get_S1 (3, G.n_objects_code,                                "n_objects_code");
     TESTELSE_SB_GET (G.b_dynamic_objects,                       "b_dynamic_objects");
         Get_SB (G.b_lfe,                                        "b_lfe");
@@ -2233,6 +2230,7 @@ void File_Ac4::ac4_substream_info_obj(group_substream& G, bool b_substreams_pres
         Skip_SB(                                                "b_audio_ndot");
     if (b_substreams_present)
     {
+        int8u substream_index;
         Get_S1(2, substream_index,                              "substream_index");
         if (substream_index==3)
         {
@@ -2454,8 +2452,8 @@ void File_Ac4::emdf_info(presentation_substream& P)
 //---------------------------------------------------------------------------
 void File_Ac4::emdf_payloads_substream_info(presentation_substream& P)
 {
-    int8u substream_index;
     Element_Begin1(                                             "emdf_payloads_substream_info");
+    int8u substream_index;
     Get_S1 (2, substream_index,                                 "substream_index");
     if (substream_index==3)
     {
@@ -2552,11 +2550,11 @@ void File_Ac4::substream_index_table()
 //---------------------------------------------------------------------------
 void File_Ac4::oamd_substream_info(group_substream& G, bool b_substreams_present)
 {
-    int8u substream_index;
     Element_Begin1(                                             "oamd_substream_info");
     Skip_SB(                                                    "b_oamd_ndot");
     if (b_substreams_present)
     {
+        int8u substream_index;
         Get_S1(2, substream_index,                              "substream_index");
         if (substream_index==3)
         {
@@ -3860,12 +3858,58 @@ void File_Ac4::dac4()
     {
         Skip_BS(Data_BS_Remain(),                               "Unknown");
         BS_End();
+        Element_End0();
         return;
     }
     Get_SB (   fs_index,                                        "fs_index");
     Get_S1 (4, frame_rate_index,                                "frame_rate_index"); Param_Info1(Ac4_frame_rate[fs_index][frame_rate_index]);
     Get_S2 (9, n_presentations,                                 "n_presentations");
+    if (bitstream_version > 1)
+    {
+        TEST_SB_SKIP(                                           "b_program_id");
+            Skip_S2(16,                                         "short_program_id");
+            TEST_SB_SKIP(                                       "b_program_uuid_present");
+                Skip_BS(128,                                    "program_uuid");
+            TEST_SB_END();
+        TEST_SB_END();
+    }
+    ac4_bitrate_dsi();
+    size_t byte_align=Data_BS_Remain()%8;
+    if (byte_align)
+        Skip_S1(byte_align,                                     "byte_align");
     BS_End();
+    Presentations.resize(n_presentations);
+    for (int8u p=0; p<n_presentations; p++)
+    {
+        Element_Begin1("presentation");
+        presentation& P=Presentations[p];
+
+        int32u pres_bytes;
+        int8u  pres_bytes8;
+        Get_B1 (P.presentation_version,                         "presentation_version");
+        Get_B1 (pres_bytes8,                                    "pres_bytes");
+        if (pres_bytes8==0xFF)
+        {
+            int16u add_pres_bytes;
+            Get_B2 (add_pres_bytes,                              "add_pres_bytes");
+            pres_bytes=pres_bytes8+add_pres_bytes;
+        }
+        else
+            pres_bytes=pres_bytes8;
+        size_t Element_Size_Save=Element_Size;
+        Element_Size=Element_Offset+pres_bytes;
+        switch (P.presentation_version)
+        {
+            //case 0 : ac4_presentation_v0_dsi(); break;
+            case 1 : ac4_presentation_v1_dsi(P); break;
+        }
+        size_t skip_bytes=Element_Size-Element_Offset;
+        if (skip_bytes)
+            Skip_XX(skip_bytes,                                 "skip_area");
+        Element_Size=Element_Size_Save;
+        Element_End0();
+    }
+
     Element_End0();
 
     FILLING_BEGIN();
@@ -3873,6 +3917,46 @@ void File_Ac4::dac4()
     FILLING_END();
     Element_Offset=Element_Size;
     MustParse_dac4=false;
+}
+
+//---------------------------------------------------------------------------
+void File_Ac4::ac4_bitrate_dsi()
+{
+    Element_Begin1("ac4_bitrate_dsi");
+        Skip_S1( 2,                                             "bit_rate_mode");
+        Skip_S4(32,                                             "bit_rate");
+        Skip_S4(32,                                             "bit_rate_precision");
+    Element_End0();
+}
+
+//---------------------------------------------------------------------------
+void File_Ac4::ac4_presentation_v1_dsi(presentation& P)
+{
+    Element_Begin1(                                             "ac4_presentation_v1_dsi");
+    bool b_add_emdf_substreams=false;
+    BS_Begin();
+    Get_S1 (5, P.presentation_config,                           "presentation_config_v1");
+    Param_Info1(Value(Ac4_presentation_config, P.presentation_config));
+    if (P.presentation_config==7)
+    {
+        b_add_emdf_substreams=true;
+    }
+    else
+    {
+        int8u dsi_frame_rate_multiply_info;
+        Skip_S1(3,                                              "mdcompat");
+        TEST_SB_SKIP(                                           "b_presentation_id");
+            Skip_S1(5,                                          "presentation_id");
+        TEST_SB_END();
+        Get_S1 (2, dsi_frame_rate_multiply_info,                "dsi_frame_rate_multiply_info"); //TODO
+        P.Substreams.resize(P.Substreams.size()+1);
+        Skip_S1(5,                                              "presentation_emdf_version");
+        Skip_S2(10,                                             "presentation_key_id");
+        Skip_S3(24,                                             "presentation_channel_mask");
+        //TODO...
+    }
+    BS_End();
+    Element_End0();
 }
 
 //***************************************************************************

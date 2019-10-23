@@ -614,6 +614,8 @@ private :
     void further_loudness_info(loudness_info& LoudnessInfo, bool sus_ver, bool b_presentation_ldn);
 
     void dac4();
+    void ac4_bitrate_dsi();
+    void ac4_presentation_v1_dsi(presentation& P);
 
     //Parsing
     void Get_V4 (int8u  Bits, int32u  &Info, const char* Name);
