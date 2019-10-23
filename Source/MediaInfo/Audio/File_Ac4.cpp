@@ -1313,8 +1313,6 @@ void File_Ac4::Data_Parse()
         Skip_B2(                                                "crc_word");
     }
 
-    Substream_Size.clear();
-
     if (!Trusted_Get() && Retrieve_Const(Stream_Audio, 0, "NOK").empty())
         Fill(Stream_Audio, 0, "NOK", "parsing", -1, true, true);//TODO remove
     Frame_Count++;
@@ -1434,6 +1432,8 @@ void File_Ac4::raw_ac4_frame()
     }
 
     Element_End0();
+
+    Substream_Size.clear();
 }
 
 //---------------------------------------------------------------------------
@@ -2822,6 +2822,8 @@ void File_Ac4::ac4_presentation_substream(size_t substream_index, size_t Substre
         Fill(Stream_Audio, 0, "NOK", "presentation_substream", -1, true, true);//TODO remove
     }
     size_t byte_align=Data_BS_Remain()%8;
+    if (!byte_align && Data_BS_Remain()==8)
+        byte_align = Data_BS_Remain(); //TODO: found in 1 stream but spec says 0..7
     if (byte_align)
         Skip_S1(byte_align,                                     "byte_align");
     BS_End();
