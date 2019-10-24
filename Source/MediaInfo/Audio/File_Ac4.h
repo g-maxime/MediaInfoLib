@@ -615,6 +615,8 @@ private :
 
     void dac4();
     void ac4_bitrate_dsi();
+    void alternative_info(presentation& P);
+    void ac4_substream_group_dsi(presentation& P);
     void ac4_presentation_v1_dsi(presentation& P);
 
     //Parsing

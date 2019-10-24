@@ -3930,6 +3930,72 @@ void File_Ac4::ac4_bitrate_dsi()
 }
 
 //---------------------------------------------------------------------------
+void File_Ac4::alternative_info(presentation& P)
+{
+    Element_Begin1(                                             "alternative_info");
+    int16u name_len;
+    Get_S2(16, name_len,                                        "name_len");
+    Skip_BS(name_len*8,                                         "presentation_name");
+
+    int8u n_targets;
+    Get_S1(5, n_targets,                                        "n_targets");
+    for (int8u Pos=0; Pos<n_targets; Pos++)
+    {
+        Skip_S1(3,                                              "target_md_compat");
+        Skip_S1(8,                                              "target_device_category");
+    }
+    Element_End0();
+}
+
+void File_Ac4::ac4_substream_group_dsi(presentation& P)
+{
+    Element_Begin1(                                             "ac4_substream_group_dsi");
+    int8u n_substreams;
+    bool b_channel_coded;
+    Skip_SB(                                                    "b_substreams_present");
+    Skip_SB(                                                    "b_hsf_ext");
+    Get_SB(b_channel_coded,                                     "b_channel_coded");
+    Get_S1(8, n_substreams,                                     "n_substreams");
+    for (int8u Pos=0; Pos<n_substreams; Pos++)
+    {
+        Skip_S1(2,                                              "dsi_sf_multiplier");
+        TEST_SB_SKIP(                                           "b_substream_bitrate_indicator");
+            Skip_S1(5,                                          "substream_bitrate_indicator");
+        TEST_SB_END();
+        if (b_channel_coded)
+        {
+            Skip_S3(24,                                         "dsi_substream_channel_mask");
+        }
+        else
+        {
+            TEST_SB_SKIP(                                       "b_ajoc");
+                TESTELSE_SB_SKIP(                               "b_static_dmx");
+                TESTELSE_SB_ELSE(                               "b_static_dmx");
+                    Skip_S1(4,                                  "n_dmx_objects_minus1");
+                TEST_SB_END();
+                Skip_S1(6,                                      "n_umx_objects_minus1");
+            TEST_SB_END();
+            Skip_SB(                                            "b_substream_contains_bed_objects");
+            Skip_SB(                                            "b_substream_contains_dynamic_objects");
+            Skip_SB(                                            "b_substream_contains_ISF_objects");
+            Skip_SB(                                            "reserved");
+        }
+    }
+
+    TEST_SB_SKIP(                                               "b_content_type");
+        Skip_S1(3,                                              "content_classifier");
+        TEST_SB_SKIP(                                           "b_language_indicator");
+            int8u n_language_tag_bytes;
+            Get_S1(6, n_language_tag_bytes,                     "n_language_tag_bytes");
+
+            for (int8u Pos=0; Pos<n_language_tag_bytes; Pos++)
+                Skip_S1(8,                                      "language_tag_bytes");
+        TEST_SB_END();
+    TEST_SB_END();
+    Element_End0();
+}
+
+//---------------------------------------------------------------------------
 void File_Ac4::ac4_presentation_v1_dsi(presentation& P)
 {
     Element_Begin1(                                             "ac4_presentation_v1_dsi");
@@ -3943,17 +4009,118 @@ void File_Ac4::ac4_presentation_v1_dsi(presentation& P)
     }
     else
     {
-        int8u dsi_frame_rate_multiply_info;
+        int8u dsi_frame_rate_multiply_info, dsi_frame_rate_fraction_info;
         Skip_S1(3,                                              "mdcompat");
         TEST_SB_SKIP(                                           "b_presentation_id");
             Skip_S1(5,                                          "presentation_id");
         TEST_SB_END();
         Get_S1 (2, dsi_frame_rate_multiply_info,                "dsi_frame_rate_multiply_info"); //TODO
+        Get_S1 (2, dsi_frame_rate_fraction_info,                "dsi_frame_rate_fraction_info"); //TODO
         P.Substreams.resize(P.Substreams.size()+1);
         Skip_S1(5,                                              "presentation_emdf_version");
         Skip_S2(10,                                             "presentation_key_id");
-        Skip_S3(24,                                             "presentation_channel_mask");
-        //TODO...
+        TEST_SB_SKIP(                                           "b_presentation_channel_coded");
+            int8u dsi_presentation_ch_mode;
+            Get_S1(5, dsi_presentation_ch_mode,                 "dsi_presentation_ch_mode");
+            if (dsi_presentation_ch_mode >=11 && dsi_presentation_ch_mode <=14)
+            {
+                Get_SB(   P.b_pres_4_back_channels_present,     "pres_b_4_back_channels_present");
+                Get_S1(2, P.pres_top_channel_pairs,             "pres_top_channel_pairs");
+            }
+            Skip_S3(24,                                         "presentation_channel_mask");
+        TEST_SB_END();
+        TEST_SB_SKIP(                                           "b_presentation_core_differs");
+            TEST_SB_SKIP(                                       "b_presentation_core_channel_coded");
+                Skip_S1(2,                                      "dsi_presentation_channel_mode_core");
+            TEST_SB_END();
+        TEST_SB_END();
+
+        TEST_SB_SKIP(                                           "b_presentation_filter");
+            int8u n_filter_bytes;
+            Skip_SB(                                            "b_enable_presentation");
+            Get_S1(8, n_filter_bytes,                           "n_filter_bytes");
+
+            for (int8u Pos=0; Pos<n_filter_bytes; Pos++)
+                Skip_S1(8, "filter_data");
+        TEST_SB_END();
+
+        if (P.presentation_config==0x1f)
+        {
+            ac4_substream_group_dsi(P);
+        }
+        else
+        {
+            switch (P.presentation_config)
+            {
+                case 0:
+                case 1:
+                case 2:
+                    ac4_substream_group_dsi(P);
+                    ac4_substream_group_dsi(P);
+                    break;
+                case 3:
+                case 4:
+                    ac4_substream_group_dsi(P);
+                    ac4_substream_group_dsi(P);
+                    ac4_substream_group_dsi(P);
+                    break;
+                case 5:
+                    int8u n_substream_groups;
+                    Get_S1(3, n_substream_groups,               "n_substream_groups_minus2");
+                    n_substream_groups+=2;
+
+                    for (int8u Pos=0; Pos<n_substream_groups; Pos++)
+                        ac4_substream_group_dsi(P);
+                    break;
+                default:
+                    int8u n_skip_bytes;
+                    Get_S1(7, n_skip_bytes,                     "n_skip_bytes");
+                    for (int8u Pos=0; Pos<n_skip_bytes; Pos++)
+                        Skip_S1(8,                              "skip_data");
+                    break;
+            }
+        }
+        Skip_SB(                                                "b_pre_virtualized");
+        Get_SB(b_add_emdf_substreams,                           "b_add_emdf_substreams");
+    }
+
+    if (b_add_emdf_substreams)
+    {
+        int8u n_add_emdf_substreams;
+        Get_S1(7, n_add_emdf_substreams,                        "n_add_emdf_substreams");
+
+        for (int8u Pos=0; Pos<n_add_emdf_substreams; Pos++)
+        {
+            Skip_S1(5,                                          "substream_emdf_version");
+            Skip_S2(10,                                         "substream_key_id");
+        }
+    }
+
+    TEST_SB_SKIP(                                               "b_presentation_bitrate_info");
+        ac4_bitrate_dsi();
+    TEST_SB_END();
+
+    TEST_SB_SKIP(                                               "b_alternative");
+        size_t byte_align=Data_BS_Remain()%8;
+        if (byte_align)
+            Skip_S1(byte_align,                                 "byte_align");
+
+        alternative_info(P);
+    TEST_SB_END();
+
+    size_t byte_align=Data_BS_Remain()%8;
+    if (byte_align)
+        Skip_S1(byte_align,                                     "byte_align");
+
+    if (Element_Size-Element_Offset) // TODO: check
+    {
+        Skip_SB(                                                "de_indicator");
+        Skip_S1(5,                                              "reserved");
+        TESTELSE_SB_SKIP(                                       "b_extended_presentation_id");
+            Skip_S2(9,                                          "extended_presentation_id");
+        TESTELSE_SB_ELSE(                                       "b_extended_presentation_id");
+            Skip_SB(                                            "reserved");
+        TESTELSE_SB_END();
     }
     BS_End();
     Element_End0();
