@@ -4149,13 +4149,12 @@ void File_Ac4::Get_VB(int8u  &Info, const char* Name)
     #if MEDIAINFO_TRACE
         if (Trace_Activated)
         {
-            int8u Count=0;
-            do
+            int8u Count=1;
+            while (BS->GetB())
             {
                 Info++;
                 Count++;
             }
-            while (BS->GetB());
             Param(Name, Info, Count);
             Param_Info(__T("(")+Ztring::ToZtring(Count)+__T(" bits)"));
         }
