@@ -2838,6 +2838,7 @@ void File_Mpeg_Descriptors::Descriptor_7F()
     {
         case 0x0F : Descriptor_7F_0F(); break;
         case 0x15 : Descriptor_7F_15(); break;
+        case 0x19 : Descriptor_7F_19(); break;
         default   : Skip_XX(Element_Size-Element_Offset,        "Unknown");
                     if (elementary_PID_IsValid)
                     {
@@ -2886,6 +2887,118 @@ void File_Mpeg_Descriptors::Descriptor_7F_15()
         }
     FILLING_END();
 }
+
+//---------------------------------------------------------------------------
+struct Descriptor_7F_19_Info
+{
+    int8u audio_rendering_indication;
+    bool audio_description;
+    bool spoken_subtitles;
+    bool dialogue_enhancement;
+    bool interactivity_enabled;
+    bool text_label_present;
+    int8u message_id;
+    int8u num_aux_components;
+    Ztring Language;
+};
+const size_t audio_rendering_indication_Size=4;
+const char* audio_rendering_indication[audio_rendering_indication_Size]=
+{
+    "Stereo",
+    "2-dimensional",
+    "3-dimensional",
+    "Headphones",
+};
+void File_Mpeg_Descriptors::Descriptor_7F_19()
+{
+    //Parsing
+    int8u num_preselections;
+    map<int8u, Descriptor_7F_19_Info> Infos;
+    BS_Begin();
+    Get_S1 (5, num_preselections,                               "num_preselections");
+    Skip_S1(3,                                                  "reserved");
+    for (int8u p=0; p<num_preselections; p++)
+    {
+        Element_Begin1("preselection");
+        int8u preselection_id;
+        bool language_code_present, text_label_present, multi_stream_info_present, future_extension;
+        Get_S1 (5, preselection_id,                             "preselection_id");
+        Descriptor_7F_19_Info& Info=Infos[preselection_id];
+        Get_S1 (3, Info.audio_rendering_indication,             "audio_rendering_indication");
+        Get_SB (Info.audio_description,                         "audio_description");
+        Get_SB (Info.spoken_subtitles,                          "spoken_subtitles");
+        Get_SB (Info.dialogue_enhancement,                      "dialogue_enhancement");
+        Get_SB (Info.interactivity_enabled,                     "interactivity_enabled");
+        Get_SB (language_code_present,                          "language_code_present");
+        Get_SB (text_label_present,                             "text_label_present");
+        Get_SB (multi_stream_info_present,                      "multi_stream_info_present");
+        Get_SB (future_extension,                               "future_extension");
+        if (language_code_present)
+        {
+            BS_End();
+            Get_Local (3, Info.Language,                        "ISO_639_language_code");
+            BS_Begin();
+        }
+        if (text_label_present)
+        {
+            Info.text_label_present=true;
+            Get_S1 (8, Info.message_id,                         "message_id");
+        }
+        if (multi_stream_info_present)
+        {
+            Get_S1 (5, Info.num_aux_components,                 "num_aux_components");
+            Skip_S1(3,                                          "reserved");
+            for (int8u c=0; c<Info.num_aux_components; c++)
+            {
+                Element_Begin1("aux_component");
+                Skip_S1(8,                                      "component_tag");
+                Element_End0();
+            }
+        }
+        else
+            Info.num_aux_components=(int8u)-1;
+        if (future_extension)
+        {
+            int8u future_extension_length;
+            Skip_S1(3,                                          "reserved");
+            Get_S1 (5, future_extension_length,                 "future_extension_length");
+            BS_End();
+            Skip_XX(future_extension_length,                    "future_extension");
+            BS_Begin();
+        }
+        Element_End0();
+    }
+    BS_End();
+
+    FILLING_BEGIN();
+        if (elementary_PID_IsValid)
+        {
+            Complete_Stream->Streams[elementary_PID]->StreamKind_FromDescriptor=Stream_Audio;
+            for (map<int8u, Descriptor_7F_19_Info>::iterator Info=Infos.begin(); Info!=Infos.end(); Info++)
+            {
+                string Prefix="Presentation0";
+                Prefix[Prefix.size()-1]+=Info->first;
+                Complete_Stream->Streams[elementary_PID]->Infos[Prefix]=Ztring::ToZtring(Info->first);
+                if (Info->second.audio_rendering_indication)
+                    Complete_Stream->Streams[elementary_PID]->Infos[Prefix + " AudioRenderingIndication"]=Info->second.audio_rendering_indication<=audio_rendering_indication_Size?Ztring().From_UTF8(audio_rendering_indication[Info->second.audio_rendering_indication-1]):Ztring::ToZtring(Info->second.audio_rendering_indication);
+                Complete_Stream->Streams[elementary_PID]->Infos[Prefix+" AudioDescription"]=Info->second.audio_description?"Yes":"No";
+                Complete_Stream->Streams[elementary_PID]->Infos[Prefix+" SpokenSubtitles"]=Info->second.spoken_subtitles?"Yes":"No";
+                Complete_Stream->Streams[elementary_PID]->Infos[Prefix+" DialogueEnhancement"]=Info->second.dialogue_enhancement?"Yes":"No";
+                Complete_Stream->Streams[elementary_PID]->Infos[Prefix+" InteractivityEnabled"]=Info->second.interactivity_enabled?"Yes":"No";
+                if (!Info->second.Language.empty())
+                {
+                    Complete_Stream->Streams[elementary_PID]->Infos[Prefix+" Language"]=Info->second.Language;
+                    Complete_Stream->Streams[elementary_PID]->Infos[Prefix+" Language/String"]= MediaInfoLib::Config.Iso639_Translate(Info->second.Language);
+                }
+                if (Info->second.text_label_present)
+                    Complete_Stream->Streams[elementary_PID]->Infos[Prefix+" PreselectionLabel"]=Ztring::ToZtring(Info->second.message_id);
+                if (Info->second.num_aux_components!=(int8u)-1)
+                    Complete_Stream->Streams[elementary_PID]->Infos[Prefix+" NumberOfElementaryStreams"]=Ztring::ToZtring(Info->second.num_aux_components);
+            }
+        }
+    FILLING_END();
+}
+
 //---------------------------------------------------------------------------
 void File_Mpeg_Descriptors::Descriptor_81()
 {

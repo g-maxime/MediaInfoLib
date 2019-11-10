@@ -1131,6 +1131,24 @@ void File__Analyze::Fill (stream_t StreamKind, size_t StreamPos, const char* Par
     }
     else
     {
+        size_t Space=Parameter_ISO.find(__T(' '));
+        size_t LastFound=(size_t)-1;
+        if (Space!=string::npos)
+        {
+            Ztring ToSearch=Parameter_ISO.substr(0, Space);
+            for (size_t i=0; i<Stream_More_Item.size(); i++)
+            {
+                if (Stream_More_Item(i, Info_Name).rfind(ToSearch, ToSearch.size())==0 && (Stream_More_Item(i, Info_Name).size()==ToSearch.size() || Stream_More_Item(i, Info_Name)[ToSearch.size()]==__T(' ')))
+                    LastFound=i;
+            }
+            if (LastFound!=(size_t)-1)
+            {
+                ZtringList ToInsert;
+                ToInsert(Info_Name)=Parameter_ISO;
+                Stream_More_Item.insert(Stream_More_Item.begin()+LastFound+1, ToInsert);
+            }
+        }
+
         Ztring &Target= Stream_More_Item(Parameter_ISO, Info_Text);
         if (Target.empty() || Replace)
         {
