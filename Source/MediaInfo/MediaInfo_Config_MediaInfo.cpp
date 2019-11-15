@@ -1563,7 +1563,7 @@ void MediaInfo_Config_MediaInfo::File_ExpandSubs_Update(void** Source)
                                 while (SpacesTestPos && (SpacesTestPos=Name.rfind(__T(' '), SpacesTestPos-1))!=string::npos)
                                     SpacesCount++;
                                 ZtringList L;
-                                L.Separator_Set(0, __T(" / "));
+                                L.Separator_Set(0, __T(" + "));
                                 L.Write((*Stream_More)[StreamKind][StreamPos][Pos][Info_Text]);
                                 for (size_t i=0; i<L.size(); i++)
                                 {

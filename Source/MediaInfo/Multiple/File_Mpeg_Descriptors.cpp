@@ -81,10 +81,26 @@ const char* Mpeg_Descriptors_audio_type(int8u ID)
 {
     switch (ID)
     {
-        case 0x00 : return "Undefined";
+        case 0x00 : return "";
         case 0x01 : return "Clean effects";
         case 0x02 : return "Hearing impaired";
         case 0x03 : return "Visual impaired commentary";
+        default   : return "Reserved";
+    }
+}
+
+
+//---------------------------------------------------------------------------
+const char* Mpeg_Descriptors_editorial_classification(int8u ID)
+{
+    switch (ID)
+    {
+        case 0x00 : return "Main";
+        case 0x01 : return "Visual impaired commentary";
+        case 0x02 : return "Clean audio";
+        case 0x03 : return "Spoken subtitles";
+        case 0x04 : return "Dependent parametric data stream";
+        case 0x17 : return "Unspecific supplementary audio for the general audience";
         default   : return "Reserved";
     }
 }
@@ -2836,6 +2852,7 @@ void File_Mpeg_Descriptors::Descriptor_7F()
     Get_B1(descriptor_tag_extension,                            "descriptor_tag_extension");
     switch (descriptor_tag_extension)
     {
+        case 0x06 : Descriptor_7F_06(); break;
         case 0x0F : Descriptor_7F_0F(); break;
         case 0x15 : Descriptor_7F_15(); break;
         case 0x19 : Descriptor_7F_19(); break;
@@ -2848,6 +2865,44 @@ void File_Mpeg_Descriptors::Descriptor_7F()
                         Temp+=Ztring::ToZtring(descriptor_tag_extension);
                     }
     }
+}
+
+//---------------------------------------------------------------------------
+void File_Mpeg_Descriptors::Descriptor_7F_06()
+{
+    //Parsing
+    Ztring Language;
+    int8u editorial_classification;
+    bool mix_type, language_code_present;
+    BS_Begin();
+    Get_SB (mix_type,                                           "mix_type");
+    Get_S1 (5, editorial_classification,                        "editorial_classification");
+    Skip_SB(                                                    "reserved_future_use");
+    Get_SB (language_code_present,                              "language_code_present");
+    if (language_code_present)
+    {
+        BS_End();
+        Get_Local (3, Language,                                 "ISO_639_language_code");
+        BS_Begin();
+    }
+    if (language_code_present)
+    if (Data_BS_Remain())
+        Skip_BS(Data_BS_Remain(),                               "private_data_bytes");
+    BS_End();
+
+    FILLING_BEGIN();
+        if (elementary_PID_IsValid)
+        {
+            mix_type;
+            Complete_Stream->Streams[elementary_PID]->Infos["MixType"]=Ztring().From_UTF8(mix_type?"Dependent":"Independent");;
+            Complete_Stream->Streams[elementary_PID]->Infos["EditorialClassification"]=Mpeg_Descriptors_editorial_classification(editorial_classification);
+            if (!Language.empty())
+            {
+                Complete_Stream->Streams[elementary_PID]->Infos["Language"]=Language;
+                Complete_Stream->Streams[elementary_PID]->Infos["Language/String"]=MediaInfoLib::Config.Iso639_Translate(Language);
+            }
+        }
+    FILLING_END();
 }
 
 //---------------------------------------------------------------------------
@@ -2988,7 +3043,7 @@ void File_Mpeg_Descriptors::Descriptor_7F_19()
                 if (!Info->second.Language.empty())
                 {
                     Complete_Stream->Streams[elementary_PID]->Infos[Prefix+" Language"]=Info->second.Language;
-                    Complete_Stream->Streams[elementary_PID]->Infos[Prefix+" Language/String"]= MediaInfoLib::Config.Iso639_Translate(Info->second.Language);
+                    Complete_Stream->Streams[elementary_PID]->Infos[Prefix+" Language/String"]=MediaInfoLib::Config.Iso639_Translate(Info->second.Language);
                 }
                 if (Info->second.text_label_present)
                     Complete_Stream->Streams[elementary_PID]->Infos[Prefix+" PreselectionLabel"]=Ztring::ToZtring(Info->second.message_id);

@@ -562,6 +562,7 @@ private :
 
     //Elements
     void raw_ac4_frame();
+    void raw_ac4_frame_substreams();
     void ac4_toc();
     void ac4_presentation_info();
     void ac4_presentation_v1_info();
