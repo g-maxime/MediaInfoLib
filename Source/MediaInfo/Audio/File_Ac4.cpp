@@ -770,7 +770,7 @@ void File_Ac4::Streams_Fill()
         string presentation_config_String;
         for (size_t g=0; g<Presentation_Current.substream_group_info_specifiers.size(); g++)
         {
-            const group& Group=Groups[g];
+            const group& Group=Groups[Presentation_Current.substream_group_info_specifiers[g]];
             if (g)
                 presentation_config_String+=" + ";
             if (Group.ContentInfo.content_classifier!=(int8u)-1)
@@ -821,7 +821,7 @@ void File_Ac4::Streams_Fill()
             Fill_SetOptions(Stream_Audio, 0, (P+" PresentationConfig").c_str(), "N NTY");
         }
         if (!presentation_config_String.empty() && presentation_config_String!=(Presentation_Current.presentation_config==(int8u)-1?"Main":Value(Ac4_presentation_config, Presentation_Current.presentation_config)))
-            Fill(Stream_Audio, 0, (P+" GroupsConfig").c_str(), presentation_config_String);
+            Fill(Stream_Audio, 0, (P+" PresentationConfig_Expected").c_str(), presentation_config_String); //TODO
         if (Presentation_Current.LoudnessInfo.dialnorm_bits!=(int8u)-1)
             Fill(Stream_Audio, 0, (P+" DialogueNormalization").c_str(), -0.25*Presentation_Current.LoudnessInfo.dialnorm_bits, 2);
         if (!Presentation_Current.Language.empty())
@@ -927,8 +927,8 @@ void File_Ac4::Streams_Fill()
         string G=Ztring(__T("Group")+Ztring::ToZtring(g)).To_UTF8();
         const group& Group=Groups[g];
         string Summary;
-        if (Group.ContentInfo.content_classifier!=(int8u)-1)
-            Summary=Value(Ac4_content_classifier, Group.ContentInfo.content_classifier);
+        //if (Group.ContentInfo.content_classifier!=(int8u)-1)
+        //    Summary=Value(Ac4_content_classifier, Group.ContentInfo.content_classifier);
         if (Summary.empty())
         {
             //Check content_classifer from presentations
@@ -940,16 +940,28 @@ void File_Ac4::Streams_Fill()
                     const size_t& Specifier=Presentation_Current.substream_group_info_specifiers[s];
                     if (Specifier==g)
                     {
-                        string Summary2=Presentation_Current.presentation_config==(int8u)-1?"Main":Value(Ac4_presentation_config, Presentation_Current.presentation_config);
+                        string Summary2;
+                        if (Presentation_Current.presentation_config==(int8u)-1)
+                            Summary2="Main";
+                        else if (s<3 && Ac4_presentation_config_split[Presentation_Current.presentation_config][s]!=(int8u)-1)
+                        {
+                            Summary2=Ac4_content_classifier[1+Ac4_presentation_config_split[Presentation_Current.presentation_config][s]];
+                            if (Ac4_presentation_config_split[Presentation_Current.presentation_config][s]==D && (Presentation_Current.presentation_config==1 || Presentation_Current.presentation_config==4) && s==1)
+                                Summary2+=" Enhancement";
+                        }
+                        else
+                            Summary2="?";
                         if (Summary2!=Summary)
                         {
                             if (!Summary.empty())
-                                Summary+=" + ";
+                                Summary+=" / ";
                             Summary+=Summary2;
                         }
                     }
                 }
             }
+            if (Summary.empty() && Group.ContentInfo.content_classifier!=(int8u)-1)
+                Summary=Value(Ac4_content_classifier, Group.ContentInfo.content_classifier);
 
             if (Summary.empty())
                 Summary="?";
@@ -1087,7 +1099,7 @@ void File_Ac4::Streams_Fill()
         if (!ChannelMode.empty())
         {
             Fill(Stream_Audio, 0, (S+" ChannelMode").c_str(), ChannelMode);
-        Fill_SetOptions(Stream_Audio, 0, (S+" ChannelMode").c_str(), "N NIY");
+            //Fill_SetOptions(Stream_Audio, 0, (S+" ChannelMode").c_str(), "N NIY");
         }
 
         //Info from group
