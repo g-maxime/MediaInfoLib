@@ -28,6 +28,9 @@
 #ifdef MEDIAINFO_AC4_YES
     #include "MediaInfo/Audio/File_Ac4.h"
 #endif
+#ifdef MEDIAINFO_AC4_YES
+    #include "MediaInfo/Audio/File_MpegHa.h"
+#endif
 #if defined(MEDIAINFO_EIA608_YES) || defined(MEDIAINFO_EIA708_YES)
     #include "MediaInfo/MediaInfo_Config_MediaInfo.h"
 #endif //defined(MEDIAINFO_EIA608_YES) || defined(MEDIAINFO_EIA708_YES)
@@ -2147,6 +2150,27 @@ void File_Mpeg_Descriptors::Descriptor_3F_03()
         Skip_S4(32,                                         "num_units_in_tick");
     }
     BS_End();
+}
+
+//---------------------------------------------------------------------------
+void File_Mpeg_Descriptors::Descriptor_3F_08()
+{
+    //Parsing
+    int8u mpegh3daProfileLevelIndication;
+    Get_B1 (mpegh3daProfileLevelIndication,                 "mpegh3daProfileLevelIndication");
+    BS_Begin();
+    Skip_SB(                                                "interactivityEnabled");
+    Skip_S1(9,                                              "reserved");
+    Skip_S1(6,                                              "referenceChannelLayout");
+    BS_End();
+
+    FILLING_BEGIN();
+        if (elementary_PID_IsValid)
+        {
+            Complete_Stream->Streams[elementary_PID]->StreamKind_FromDescriptor=Stream_Audio;
+            Complete_Stream->Streams[elementary_PID]->Infos["Format"]=__T("MPEG-H");
+        }
+    FILLING_END();
 }
 
 //---------------------------------------------------------------------------

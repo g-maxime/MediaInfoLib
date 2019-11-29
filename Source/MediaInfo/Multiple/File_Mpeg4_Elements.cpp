@@ -85,6 +85,9 @@
 #if defined(MEDIAINFO_MPEGA_YES)
     #include "MediaInfo/Audio/File_Mpega.h"
 #endif
+#if defined(MEDIAINFO_MPEGHA_YES)
+    #include "MediaInfo/Audio/File_MpegHa.h"
+#endif
 #if defined(MEDIAINFO_PCM_YES)
     #include "MediaInfo/Audio/File_Pcm.h"
 #endif
@@ -5406,6 +5409,14 @@ void File_Mpeg4::moov_trak_mdia_minf_stbl_stsd_xxxxSound()
         {
             //Creating the parser
             File_Mpega* Parser=new File_Mpega;
+            Streams[moov_trak_tkhd_TrackID].Parsers.push_back(Parser);
+        }
+        #endif
+        #if defined(MEDIAINFO_MPEGHA_YES)
+        if (MediaInfoLib::Config.CodecID_Get(Stream_Audio, InfoCodecID_Format_Mpeg4, Codec, InfoCodecID_Format)==__T("MPEG-H 3D Audio"))
+        {
+            //Creating the parser
+            File_MpegHa* Parser=new File_MpegHa;
             Streams[moov_trak_tkhd_TrackID].Parsers.push_back(Parser);
         }
         #endif
