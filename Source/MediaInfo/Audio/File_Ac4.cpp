@@ -271,17 +271,29 @@ static int32u Ac4_ch_mode_2_nonstd_Values[16]=
     L | R | C | Ls | Rs | Lw | Rw | LFE,        //7.1 5/2/0
     L | R | C | Ls | Rs | Tl | Tr,              //7.0 3/2/2
     L | R | C | Ls | Rs | Tl | Tr | LFE,        //7.1 3/2/2
-    L | R | C | Ls | Rs | Lb | Rb | Lw | Rw | Tfl | Tfr | Tbl | Tbr,            //7.0.4
-    L | R | C | Ls | Rs | Lb | Rb | Lw | Rw | Tfl | Tfr | Tbl | Tbr | LFE,      //7.1.4
+    L | R | C | Ls | Rs | Lb | Rb | Tfl | Tfr | Tbl | Tbr,                      //7.0.4
+    L | R | C | Ls | Rs | Lb | Rb | Tfl | Tfr | Tbl | Tbr | LFE,                //7.1.4
     L | R | C | Ls | Rs | Lb | Rb | Lw | Rw | Tfl | Tfr | Tbl | Tbr,            //9.0.4
     L | R | C | Ls | Rs | Lb | Rb | Lw | Rw | Tfl | Tfr | Tbl | Tbr | LFE,      //9.1.4
     (int32u)-1, //22.2
 };
-static int32u Ac4_ch_mode_2_nonstd(int8u ch_mode)
+static int32u Ac4_ch_mode_2_nonstd(int8u ch_mode, bool b_4_back_channels_present=false, bool b_centre_present=false, int8u top_channels_present=0)
 {
     if (ch_mode>15)
         return (int32u)-1;
-    return Ac4_ch_mode_2_nonstd_Values[ch_mode];
+    int32u Value=Ac4_ch_mode_2_nonstd_Values[ch_mode];
+    if (ch_mode>=11 && ch_mode<=14)
+    {
+        if (!b_4_back_channels_present)
+            Value&=~(Lb | Rb);
+        if (!b_centre_present)
+            Value&=~(LFE);
+        if (top_channels_present<=1)
+            Value&=~(Tbl | Tbr);
+        if (!top_channels_present || top_channels_present==2)
+            Value&=~(Tfl | Tfr);
+    }
+    return Value;
 }
 static string Ac4_nonstd_2_ch_mode_String(int32u nonstd_bed_channel_assignment_mask)
 {
@@ -472,7 +484,7 @@ static const sized_array_string Ac4_de_channel_config=
 {
 (const char*)8,
 "",
-"M",
+"C",
 "R",
 "R C",
 "L",
@@ -565,7 +577,7 @@ static const char* AC4_nonstd_bed_channel_assignment_mask_ChannelLayout_List[17]
 Ztring AC4_nonstd_bed_channel_assignment_mask_ChannelLayout(int32u nonstd_bed_channel_assignment_mask)
 {
     if (!nonstd_bed_channel_assignment_mask)
-        return __T("M");
+        return __T("C");
     
     Ztring ToReturn;
 
@@ -810,6 +822,9 @@ void File_Ac4::Streams_Fill()
 
         string P=Ztring(__T("Presentation")+Ztring::ToZtring(p)).To_UTF8();
         Fill(Stream_Audio, 0, P.c_str(), Summary);
+        Fill(Stream_Audio, 0, (P+" Pos").c_str(), p);
+        Fill_SetOptions(Stream_Audio, 0, (P+" Pos").c_str(), "N NIY");
+        Fill(Stream_Audio, 0, (P+" ID").c_str(), p+1);
         if (!ChannelMode.empty())
         {
             Fill(Stream_Audio, 0, (P+" ChannelMode").c_str(), ChannelMode);
@@ -1112,7 +1127,7 @@ void File_Ac4::Streams_Fill()
                     if (GroupInfo.ch_mode!=(int8u)-1)
                     {
                         //Channel based
-                        Fill(Stream_Audio, 0, (S + " ChannelLayout").c_str(), AC4_nonstd_bed_channel_assignment_mask_ChannelLayout(Ac4_ch_mode_2_nonstd(GroupInfo.ch_mode)));
+                        Fill(Stream_Audio, 0, (S + " ChannelLayout").c_str(), AC4_nonstd_bed_channel_assignment_mask_ChannelLayout(Ac4_ch_mode_2_nonstd(GroupInfo.ch_mode, GroupInfo.b_4_back_channels_present, GroupInfo.b_centre_present, GroupInfo.top_channels_present)));
                     }
                     else if (GroupInfo.ch_mode==(int8u)-1 && !GroupInfo.b_ajoc && GroupInfo.n_objects_code!=(int8u)-1)
                     {
