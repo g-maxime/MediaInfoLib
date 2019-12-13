@@ -38,7 +38,7 @@ private :
 
     enum UsacElementType
     {
-        ID_USAC_SCE = 16,
+        ID_USAC_SCE,
         ID_USAC_CPE,
         ID_USAC_LFE,
         ID_USAC_EXT
@@ -60,6 +60,17 @@ private :
         ID_EXT_ELE_HOA_ENH_LAYER,
         ID_EXT_ELE_HREP,
         ID_EXT_ELE_ENHANCED_OBJ_METADATA
+    };
+
+    enum UsacConfigExtType
+    {
+        ID_CONFIG_EXT_FILL,
+        ID_CONFIG_EXT_DOWNMIX,
+        ID_CONFIG_EXT_LOUDNESS_INFO,
+        ID_CONFIG_EXT_AUDIOSCENE_INFO,
+        ID_CONFIG_EXT_HOA_MATRIX,
+        ID_CONFIG_EXT_ICG,
+        ID_CONFIG_EXT_SIG_GROUP_INFO
     };
 
     enum MaeDataType
@@ -130,7 +141,11 @@ private :
 
     //Elements
     void Sync();
+
     void escapedValue(int32u& Value, int8u nBits1, int8u nBits2, int8u nBits3, const char* Name);
+    void SbrConfig();
+    void SbrDlftHeader();
+    void Mps212Config(int8u StereoConfigindex);
 
     void mpegh3daConfig();
     void SpeakerConfig3d(speaker_layout& Layout);
@@ -146,6 +161,8 @@ private :
     void mpegh3daUniDrcConfig();
     void ObjectMetadataConfig();
     void SAOC3DSpecificConfig();
+
+    void mpegh3daConfigExtension();
 
     void mae_AudioSceneInfo();
     void mae_GroupDefinition(int8u numGroups);

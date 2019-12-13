@@ -92,11 +92,11 @@ void File_MpegHa::Data_Parse()
     {
         case  0 : Element_Name("FILLDATA"); Skip_XX(Element_Size-Element_Offset, "Data"); break;
         case  1 :
-            //Element_Name("MPEGH3DACFG");
-            //BS_Begin();
-            //mpegh3daConfig();
-            //BS_End();
-            Skip_XX(Element_Size-Element_Offset, "Data");
+            Element_Name("MPEGH3DACFG");
+            BS_Begin();
+            mpegh3daConfig();
+            BS_End();
+            Skip_XX(Element_Size-Element_Offset, "BUGGY"); //TODO: Data
             break;
         case  2 : Element_Name("MPEGH3DAFRAME"); Skip_XX(Element_Size-Element_Offset, "Data"); break;
         case  3 :
@@ -136,6 +136,11 @@ void File_MpegHa::Sync()
     Skip_B1(                                                    "syncword");
 }
 
+//***************************************************************************
+// Duplicated USAC functions
+// TODO: move to shared USAC class
+//***************************************************************************
+
 //---------------------------------------------------------------------------
 void File_MpegHa::escapedValue(int32u &Value, int8u nBits1, int8u nBits2, int8u nBits3, const char* Name)
 {
@@ -157,13 +162,88 @@ void File_MpegHa::escapedValue(int32u &Value, int8u nBits1, int8u nBits2, int8u 
 }
 
 //---------------------------------------------------------------------------
+void File_MpegHa::SbrConfig()
+{
+    Element_Begin1("SbrConfig");
+
+    Skip_SB(                                                    "harmonicsSBR");
+    Skip_SB(                                                    "bs_interTes");
+    Skip_SB(                                                    "bs_pvc");
+    SbrDlftHeader();
+
+    Element_End0();
+}
+
+//---------------------------------------------------------------------------
+void File_MpegHa::SbrDlftHeader()
+{
+    Element_Begin1("SbrDlftHeader");
+
+    bool dflt_header_extra1, dflt_header_extra2;
+    Skip_S1(4,                                                  "dflt_start_freq");
+    Skip_S1(4,                                                  "dflt_stop_freq");
+    Get_SB (   dflt_header_extra1,                              "dflt_header_extra1");
+    Get_SB (   dflt_header_extra2,                              "dflt_header_extra2");
+    if (dflt_header_extra1)
+    {
+        Skip_S1(2,                                              "dflt_freq_scale");
+        Skip_SB(                                                "dflt_alter_scale");
+        Skip_S1(2,                                              "dflt_noise_bands");
+    }
+    if (dflt_header_extra2)
+    {
+        Skip_S1(2,                                              "dflt_limiter_bands");
+        Skip_S1(2,                                              "dflt_limiter_gains");
+        Skip_SB(                                                "dflt_interpol_freq");
+        Skip_SB(                                                "dflt_smoothing_mode");
+    }
+
+    Element_End0();
+}
+
+//---------------------------------------------------------------------------
+void File_MpegHa::Mps212Config(int8u StereoConfigindex)
+{
+    Element_Begin1("Mps212Config");
+
+    int8u bsTempShapeConfig;
+    bool bsOttBandsPhasePresent;
+    Skip_S1(3,                                                  "bsFreqRes");
+    Skip_S1(3,                                                  "bsFixedGainDMX");
+    Get_S1 (2, bsTempShapeConfig,                               "bsTempShapeConfig");
+    Skip_S1(2,                                                  "bsDecorrConfig");
+    Skip_SB(                                                    "bsHighRatelMode");
+    Skip_SB(                                                    "bsPhaseCoding");
+    Get_SB (   bsOttBandsPhasePresent,                          "bsOttBandsPhasePresent");
+    if (bsOttBandsPhasePresent)
+    {
+        Skip_S1(5,                                              "bsOttBandsPhase");
+    }
+    if (StereoConfigindex>1)
+    {
+        Skip_S1(5,                                              "bsResidualBands");
+        Skip_SB(                                                "bSPseudor");
+    }
+    if (bsTempShapeConfig==2)
+    {
+        Skip_SB(                                                "bSEnvOuantMode");
+    }
+
+    Element_End0();
+}
+
+//***************************************************************************
+// MPEGH3DACFG
+//***************************************************************************
+
+//---------------------------------------------------------------------------
 void File_MpegHa::mpegh3daConfig()
 {
     int8u usacSamplingFrequencyIndex;
     Element_Begin1("mpegh3daConfig");
     Skip_S1(8,                                                  "mpegh3daProfileLevelIndication");
     Get_S1( 5, usacSamplingFrequencyIndex,                      "usacSamplingFrequencyIndex");
-    if (usacSamplingFrequencyIndex == 0x1f)
+    if (usacSamplingFrequencyIndex==0x1f)
         Skip_S3(24,                                             "usacSamplingFrequency");
     Skip_S1(3,                                                  "coreSbrFrameLengthIndex");
     Skip_SB(                                                    "cfg_reserved");
@@ -172,7 +252,7 @@ void File_MpegHa::mpegh3daConfig()
     FrameworkConfig3d();
     mpegh3daDecoderConfig();
     TEST_SB_SKIP(                                               "usacConfigExtensionPresent");
-    //TODO: mpegh3daConfigExtension();
+        mpegh3daConfigExtension();
     TEST_SB_END();
     Element_End0();
 }
@@ -185,7 +265,8 @@ void File_MpegHa::SpeakerConfig3d(speaker_layout& Layout)
     Get_S1(2, speakerLayoutType,                                "speakerLayoutType");
     if (speakerLayoutType==0)
     {
-        Skip_S1(6,                                              "CICPspeakerLayoutIdx");
+        int8u CICPspeakerLayoutIdx;
+        Get_S1(6, CICPspeakerLayoutIdx,                         "CICPspeakerLayoutIdx");
     }
     else
     {
@@ -197,7 +278,10 @@ void File_MpegHa::SpeakerConfig3d(speaker_layout& Layout)
         if (speakerLayoutType==1)
         {
             for (size_t Pos=0; Pos<numSpeakers; Pos++)
-                Skip_S1(7,                                      "CICPspeakerIdx");
+            {
+                int8u CICPspeakerIdx;
+                Get_S1(7, CICPspeakerIdx,                       "CICPspeakerIdx");
+            }
         }
         else if (speakerLayoutType==2)
         {
@@ -279,7 +363,7 @@ void File_MpegHa::FrameworkConfig3d()
     Element_Begin1("Signals3d");
     int8u bsNumSignalGroups;
     Get_S1(5, bsNumSignalGroups,                                "bsNumSignalGroups");
-    for (int8u Pos=0; Pos<bsNumSignalGroups; Pos++)
+    for (int8u Pos=0; Pos<bsNumSignalGroups+1; Pos++)
     {
         int8u signalGroupType;
         Get_S1(3, signalGroupType,                              "signalGroupType");
@@ -319,12 +403,12 @@ void File_MpegHa::FrameworkConfig3d()
 //---------------------------------------------------------------------------
 void File_MpegHa::mpegh3daDecoderConfig()
 {
-    int32u numElements;
-    bool elementLengthPresent;
     Element_Begin1("mpegh3daDecoderConfig");
+    int32u numElements;
     escapedValue(numElements, 4, 8, 16,                         "numElements");
     numElements++;
 
+    bool elementLengthPresent;
     Get_SB(elementLengthPresent,                                "elementLengthPresent");
 
     for (size_t Pos=0; Pos<numElements; Pos++)
@@ -334,10 +418,10 @@ void File_MpegHa::mpegh3daDecoderConfig()
         switch (usacElementType)
         {
         case ID_USAC_SCE:
-            mpegh3daSingleChannelElementConfig(1 /* TODO: sbrRatioIndex */);
+            mpegh3daSingleChannelElementConfig(0 /* TODO: sbrRatioIndex? */);
             break;
         case ID_USAC_CPE:
-            mpegh3daChannelPairElementConfig(1 /* TODO: sbrRatioIndex */);
+            mpegh3daChannelPairElementConfig(0 /* TODO: sbrRatioIndex? */);
             break;
         case ID_USAC_LFE:
             mpegh3daLfeElementConfig();
@@ -357,9 +441,7 @@ void File_MpegHa::mpegh3daSingleChannelElementConfig(int8u sbrRatioIndex)
     Element_Begin1("mpegh3daSingleChannelElementConfig");
     mpegh3daCoreConfig();
     if (sbrRatioIndex>0)
-    {
-        //TODO: SbrConfig();
-    }
+        SbrConfig();
     Element_End0();
 }
 
@@ -375,12 +457,12 @@ void File_MpegHa::mpegh3daChannelPairElementConfig(int8u sbrRatioIndex)
 
     if (sbrRatioIndex>0)
     {
-        //TODO: SbrConfig();
+        SbrConfig();
         Get_S1(2, stereoConfigIndex,                            "stereoConfigIndex");
     }
 
     if (stereoConfigIndex>0) {
-        //TODO: Mps212Config(stereoConfigIndex);
+        Mps212Config(stereoConfigIndex);
     }
 
     Get_S1(2, qceIndex,                                         "qceIndex");
@@ -428,48 +510,42 @@ void File_MpegHa::mpegh3daExtElementConfig()
 
     switch (usacExtElementType)
     {
-    case ID_EXT_ELE_FILL:
-        // No configuration element
-        break;
-    case ID_EXT_ELE_MPEGS:
+    case ID_EXT_ELE_FILL: break; // No configuration element
+    //case ID_EXT_ELE_MPEGS:
         //TODO: SpatialSpecificConfig();
-        break;
-    case ID_EXT_ELE_SAOC:
+        //break;
+    //case ID_EXT_ELE_SAOC:
         //TODO: SAOCSpecificConfig();
-        break;
-    case ID_EXT_ELE_AUDIOPREROLL:
-        // No configuration element
-        break;
-    case ID_EXT_ELE_UNI_DRC:
-        mpegh3daUniDrcConfig();
-        break;
-    case ID_EXT_ELE_OBJ_METADATA:
-        ObjectMetadataConfig();
-        break;
-    case ID_EXT_ELE_SAOC_3D:
+        //break;
+    case ID_EXT_ELE_AUDIOPREROLL: break; // No configuration element
+    //case ID_EXT_ELE_UNI_DRC:
+        //mpegh3daUniDrcConfig();
+        //break;
+    //case ID_EXT_ELE_OBJ_METADATA:
+        //ObjectMetadataConfig();
+        //break;
+    //case ID_EXT_ELE_SAOC_3D:
         //TODO: SAOC3DSpecificConfig();
-        break;
-    case ID_EXT_ELE_HOA:
+        //break;
+    //case ID_EXT_ELE_HOA:
         //TODO: HOAConfig();
-        break;
-    case ID_EXT_ELE_FMT_CNVRTR:
-        // No configuration element
-        break;
-    case ID_EXT_ELE_MCT:
+        //break;
+    case ID_EXT_ELE_FMT_CNVRTR: break; // No configuration element
+    //case ID_EXT_ELE_MCT:
         //TODO: MCTConfig();
-        break;
-    case ID_EXT_ELE_TCC:
+        //break;
+    //case ID_EXT_ELE_TCC:
         //TODO: TccConfig();
-        break;
-    case ID_EXT_ELE_HOA_ENH_LAYER:
+        //break;
+    //case ID_EXT_ELE_HOA_ENH_LAYER:
         //TODO: HOAEnhConfig();
-        break;
-    case ID_EXT_ELE_HREP:
+        //break;
+    //case ID_EXT_ELE_HREP:
         //TODO: HREPConfig(current_signal_group);
-        break;
-    case ID_EXT_ELE_ENHANCED_OBJ_METADATA:
+        //break;
+    //case ID_EXT_ELE_ENHANCED_OBJ_METADATA:
         //TODO: EnhancedObjectMetadataConfig();
-        break;
+        //break;
     default:
         Skip_BS(usacExtElementConfigLength*8,                   "reserved");
         break;
@@ -492,7 +568,7 @@ bool File_MpegHa::mpegh3daCoreConfig()
         Skip_SB(                                                "igfUseWhitening");
         Skip_SB(                                                "igfAfterTnsSynth");
         Skip_S1(5,                                              "igfStartIndex");
-        Skip_S1(1,                                              "igfStopIndex");
+        Skip_S1(4,                                              "igfStopIndex");
     TEST_SB_END();
     Element_End0();
 
@@ -595,6 +671,54 @@ void File_MpegHa::SAOC3DSpecificConfig()
     TEST_SB_END();
     Skip_S1(BS->Remain()%8,                                     "byte_align");
     //TODO: SAOC3DExtensionConfig();
+    Element_End0();
+}
+
+//---------------------------------------------------------------------------
+void File_MpegHa::mpegh3daConfigExtension()
+{
+    Element_Begin1("mpegh3daConfigExtension");
+    int32u numConfigExtensions;
+    escapedValue(numConfigExtensions, 2, 4, 8,                  "numConfigExtensions");
+    numConfigExtensions++;
+
+    for (int32u Pos=0; Pos<numConfigExtensions; Pos++)
+    {
+        int32u usacConfigExtType;
+        escapedValue(usacConfigExtType, 4, 8, 16,               "usacConfigExtType");
+
+        int32u usacConfigExtLength;
+        escapedValue(usacConfigExtLength, 4, 8, 16,             "usacConfigExtLength");
+
+        switch ((UsacConfigExtType)usacConfigExtType)
+        {
+        case ID_CONFIG_EXT_FILL:
+            while (usacConfigExtLength--)
+                Skip_S1(8,                                      "fill_byte"); // should be '10100101'
+            break;
+        //case ID_CONFIG_EXT_DOWNMIX:
+        //TODO:    downmixConfig();
+        //    break;
+        //case ID_CONFIG_EXT_LOUDNESS_INFO:
+        //TODO:    mpegh3daLoudnessInfoSet();
+        //    break;
+        case ID_CONFIG_EXT_AUDIOSCENE_INFO:
+            mae_AudioSceneInfo();
+            break;
+        //case ID_CONFIG_EXT_HOA_MATRIX:
+        //TODO:    HoaRenderingMatrixSet();
+        //    break;
+        //case ID_CONFIG_EXT_ICG:
+        //TODO:    ICGConfig();
+        //    break;
+        //case ID_CONFIG_EXT_SIG_GROUP_INFO:
+        //TODO:    SignalGroupInformation();
+        //    break;
+        default:
+            Skip_BS(usacConfigExtLength*8,                      "reserved");
+            break;
+        }
+    }
     Element_End0();
 }
 
@@ -769,8 +893,16 @@ void File_MpegHa::mae_Data(int8u numGroups, int8u numGroupPresets)
         default:
             Skip_BS(mae_dataLength*8,                           "reserved");
         }
-        if (Remain_Before-BS->Remain()<mae_dataLength*8)
-            Skip_S1(mae_dataLength*8-(Remain_Before-BS->Remain()), "remaining"); //TODO: Skip_BS
+        if (BS->Remain()+mae_dataLength*8>Remain_Before)
+        {
+            size_t Size=BS->Remain()+mae_dataLength*8-Remain_Before;
+            int8u Padding=1;
+            if (Size<8)
+                Peek_S1((int8u)Size, Padding);
+
+            Skip_BS(Size, Padding?"(Unknown)":"Padding");
+        }
+
     }
     Element_End0();
 }

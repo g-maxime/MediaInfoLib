@@ -353,10 +353,10 @@ void File_Aac::SbrDlftHeader()
     }
     if (dflt_header_extra2)
     {
-        Skip_S1(2,                                              "dflt_limiter_bands;");
+        Skip_S1(2,                                              "dflt_limiter_bands");
         Skip_S1(2,                                              "dflt_limiter_gains");
-        Skip_SB(                                                "dflt_interpol_freq;");
-        Skip_SB(                                                "dflt_smoothing_mode;");
+        Skip_SB(                                                "dflt_interpol_freq");
+        Skip_SB(                                                "dflt_smoothing_mode");
     }
 
     Element_End0();
