@@ -87,6 +87,16 @@ private :
         ID_MAE_LOUDNESS_COMPENSATION
     };
 
+    struct usac_element
+    {
+        UsacElementType Type;
+
+        usac_element(UsacElementType Type) :
+            Type(Type)
+        {};
+    };
+    vector<usac_element> Elements;
+
     struct speaker_info
     {
         bool angularPrecision;
@@ -126,10 +136,14 @@ private :
     speaker_layout DefaultLayout;
     vector<group_preset> GroupPresets;
 
+    int32u numElements;
+
     int16u numAudioChannels;
     int16u numAudioObjects;
     int16u numSAOCTransportChannels;
     int16u numHOATransportChannels;
+
+    int8u bsNumSignalGroups;
 
     //Streams management
     void Streams_Fill();
@@ -155,14 +169,19 @@ private :
     void mpegh3daDecoderConfig();
     void mpegh3daSingleChannelElementConfig(int8u sbrRatioIndex);
     void mpegh3daChannelPairElementConfig(int8u sbrRatioIndex);
-    void mpegh3daLfeElementConfig();
     void mpegh3daExtElementConfig();
     bool mpegh3daCoreConfig();
     void mpegh3daUniDrcConfig();
+    void mpegh3daLoudnessInfoSet();
     void ObjectMetadataConfig();
     void SAOC3DSpecificConfig();
+    int32u SAOC3DgetNumChannels(speaker_layout Layout);
+    void TccConfig();
+    void EnhancedObjectMetadataConfig();
 
     void mpegh3daConfigExtension();
+    void SignalGroupInformation();
+    void ICGConfig();
 
     void mae_AudioSceneInfo();
     void mae_GroupDefinition(int8u numGroups);

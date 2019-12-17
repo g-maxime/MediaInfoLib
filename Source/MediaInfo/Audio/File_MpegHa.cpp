@@ -267,6 +267,7 @@ void File_MpegHa::SpeakerConfig3d(speaker_layout& Layout)
     {
         int8u CICPspeakerLayoutIdx;
         Get_S1(6, CICPspeakerLayoutIdx,                         "CICPspeakerLayoutIdx");
+        //TODO: Import layout from IEC 23001-8
     }
     else
     {
@@ -281,6 +282,7 @@ void File_MpegHa::SpeakerConfig3d(speaker_layout& Layout)
             {
                 int8u CICPspeakerIdx;
                 Get_S1(7, CICPspeakerIdx,                       "CICPspeakerIdx");
+                //TODO: Import layout from IEC 23001-8
             }
         }
         else if (speakerLayoutType==2)
@@ -361,7 +363,6 @@ void File_MpegHa::FrameworkConfig3d()
 
     Element_Begin1("FrameworkConfig3d");
     Element_Begin1("Signals3d");
-    int8u bsNumSignalGroups;
     Get_S1(5, bsNumSignalGroups,                                "bsNumSignalGroups");
     for (int8u Pos=0; Pos<bsNumSignalGroups+1; Pos++)
     {
@@ -403,8 +404,9 @@ void File_MpegHa::FrameworkConfig3d()
 //---------------------------------------------------------------------------
 void File_MpegHa::mpegh3daDecoderConfig()
 {
+    Elements.clear();
+
     Element_Begin1("mpegh3daDecoderConfig");
-    int32u numElements;
     escapedValue(numElements, 4, 8, 16,                         "numElements");
     numElements++;
 
@@ -419,15 +421,18 @@ void File_MpegHa::mpegh3daDecoderConfig()
         {
         case ID_USAC_SCE:
             mpegh3daSingleChannelElementConfig(0 /* TODO: sbrRatioIndex? */);
+            Elements.push_back(usac_element(ID_USAC_SCE));
             break;
         case ID_USAC_CPE:
             mpegh3daChannelPairElementConfig(0 /* TODO: sbrRatioIndex? */);
+            Elements.push_back(usac_element(ID_USAC_CPE));
             break;
         case ID_USAC_LFE:
-            mpegh3daLfeElementConfig();
+            Elements.push_back(usac_element(ID_USAC_LFE));
             break;
         case ID_USAC_EXT:
             mpegh3daExtElementConfig();
+            Elements.push_back(usac_element(ID_USAC_EXT));
             break;
         }
 
@@ -483,14 +488,6 @@ void File_MpegHa::mpegh3daChannelPairElementConfig(int8u sbrRatioIndex)
 }
 
 //---------------------------------------------------------------------------
-void File_MpegHa::mpegh3daLfeElementConfig()
-{
-    Element_Begin1("mpegh3daLfeElementConfig");
-    //TODO:
-    Element_End0();
-}
-
-//---------------------------------------------------------------------------
 void File_MpegHa::mpegh3daExtElementConfig()
 {
     Element_Begin1("mpegh3daExtElementConfig");
@@ -508,22 +505,23 @@ void File_MpegHa::mpegh3daExtElementConfig()
 
     Skip_SB(                                                    "usacExtElementPayloadFrag");
 
+    size_t Remain_Before=BS->Remain();
     switch (usacExtElementType)
     {
     case ID_EXT_ELE_FILL: break; // No configuration element
     //case ID_EXT_ELE_MPEGS:
-        //TODO: SpatialSpecificConfig();
+        //TODO: SpatialSpecificConfig(); // In IEC 23003‐1
         //break;
     //case ID_EXT_ELE_SAOC:
-        //TODO: SAOCSpecificConfig();
+        //TODO: SAOCSpecificConfig(); // In IEC 23003‐2
         //break;
     case ID_EXT_ELE_AUDIOPREROLL: break; // No configuration element
     //case ID_EXT_ELE_UNI_DRC:
         //mpegh3daUniDrcConfig();
         //break;
-    //case ID_EXT_ELE_OBJ_METADATA:
-        //ObjectMetadataConfig();
-        //break;
+    case ID_EXT_ELE_OBJ_METADATA:
+        ObjectMetadataConfig();
+        break;
     //case ID_EXT_ELE_SAOC_3D:
         //TODO: SAOC3DSpecificConfig();
         //break;
@@ -534,9 +532,9 @@ void File_MpegHa::mpegh3daExtElementConfig()
     //case ID_EXT_ELE_MCT:
         //TODO: MCTConfig();
         //break;
-    //case ID_EXT_ELE_TCC:
-        //TODO: TccConfig();
-        //break;
+    case ID_EXT_ELE_TCC:
+        TccConfig();
+        break;
     //case ID_EXT_ELE_HOA_ENH_LAYER:
         //TODO: HOAEnhConfig();
         //break;
@@ -544,12 +542,22 @@ void File_MpegHa::mpegh3daExtElementConfig()
         //TODO: HREPConfig(current_signal_group);
         //break;
     //case ID_EXT_ELE_ENHANCED_OBJ_METADATA:
-        //TODO: EnhancedObjectMetadataConfig();
+        //EnhancedObjectMetadataConfig();
         //break;
     default:
         Skip_BS(usacExtElementConfigLength*8,                   "reserved");
         break;
     }
+    if (BS->Remain()+usacExtElementConfigLength*8>Remain_Before)
+    {
+        size_t Size=BS->Remain()+usacExtElementConfigLength*8-Remain_Before;
+        int8u Padding=1;
+        if (Size<8)
+            Peek_S1((int8u)Size, Padding);
+
+        Skip_S1(Size, Padding?"(Unknown)":"Padding");
+    }
+
     Element_End0();
 }
 
@@ -578,19 +586,76 @@ bool File_MpegHa::mpegh3daCoreConfig()
 //---------------------------------------------------------------------------
 void File_MpegHa::mpegh3daUniDrcConfig()
 {
-    int8u drcCoefficientsUniDrcCount;
-    int8u drcInstructionsUniDrcCount;
     Element_Begin1("mpegh3daUniDrcConfig");
-    // From mpegh3daUniDrcChannelLayout()
+    int8u drcCoefficientsUniDrcCount;
+    Get_S1(3, drcCoefficientsUniDrcCount,                       "drcCoefficientsUniDrcCount");
+
+    int8u drcInstructionsUniDrcCount;
+    Get_S1(6, drcInstructionsUniDrcCount,                       "drcInstructionsUniDrcCount");
+
     Element_Begin1("mpegh3daUniDrcChannelLayout");
     Skip_S1(7,                                                  "baseChannelCount");
     Element_End0();
 
     for (int8u Pos=0; Pos<drcCoefficientsUniDrcCount; Pos++)
     {
-        //TODO: drcCoefficientsUniDrc();
+        //TODO: drcCoefficientsUniDrc(); // in File_USAC.cpp
     }
-    //TODO:
+
+    for (int8u Pos=0; Pos<drcInstructionsUniDrcCount; Pos++)
+    {
+        int8u drcInstructionsType;
+        Get_S1(Peek_SB()?2:1, drcInstructionsType,              "drcInstructionsType");
+
+
+        if (drcInstructionsType==2)
+            Skip_S1(7,                                          "mae_groupID");
+        else if (drcInstructionsType==3)
+            Skip_S1(5,                                          "mae_groupPresetID");
+
+        //TODO: drcInstructionsUniDrc(); // in File_USAC.cpp
+    }
+
+    TEST_SB_SKIP(                                               "uniDrcConfigExtPresent");
+        //TODO: uniDrcConfigExtension(); // in File_USAC.cpp
+    TEST_SB_END();
+
+    TEST_SB_SKIP(                                               "loudnessInfoSetPresent");
+        mpegh3daLoudnessInfoSet();
+    TEST_SB_END();
+    Element_End0();
+}
+
+//---------------------------------------------------------------------------
+void File_MpegHa::mpegh3daLoudnessInfoSet()
+{
+    Element_Begin1("mpegh3daLoudnessInfoSet");
+    int8u loudnessInfoCount;
+    Get_S1(6, loudnessInfoCount,                                "loudnessInfoCount");
+    for(int8u Pos=0; Pos<loudnessInfoCount; Pos++)
+    {
+        int8u loudnessInfoType;
+        Get_S1(2, loudnessInfoType,                             "loudnessInfoType");
+        if (loudnessInfoType==1 || loudnessInfoType==2)
+            Skip_S1(7,                                          "mae_groupID");
+        else if (loudnessInfoType==3)
+            Skip_S1(5,                                          "mae_groupPresetID");
+
+        //TODO: loudnessInfo(); // in File_USAC.cpp
+    }
+
+    TEST_SB_SKIP(                                               "loudnessInfoAlbumPresent");
+        int8u loudnessInfoAlbumCount;
+        Get_S1(6, loudnessInfoAlbumCount,                       "loudnessInfoAlbumCount");
+        for (int8u Pos=0; Pos<loudnessInfoAlbumCount; Pos++)
+        {
+            //TODO: loudnessInfo(); // in File_USAC.cpp
+        }
+    TEST_SB_END();
+
+    TEST_SB_SKIP(                                               "loudnessInfoSetExtensionPresent");
+    TEST_SB_END();
+    //TODO: loudnessInfoSetExtension(); // in File_USAC.cpp
     Element_End0();
 }
 
@@ -618,7 +683,8 @@ void File_MpegHa::ObjectMetadataConfig()
 //---------------------------------------------------------------------------
 void File_MpegHa::SAOC3DSpecificConfig()
 {
-    int8u bsSamplingFrequencyIndex, bsNumSaocDmxChannels, bsNumSaocDmxObjects, bsNumSaocObjects, NumSaocChannels=0, NumInputSignals=0;
+    int8u bsSamplingFrequencyIndex, bsNumSaocDmxChannels, bsNumSaocDmxObjects, bsNumSaocObjects;
+    int32u NumPremixedChannels=0,  NumSaocChannels=0, NumInputSignals=0;
     Element_Begin1("SAOC3DSpecificConfig");
     Get_S1(4, bsSamplingFrequencyIndex,                         "bsSamplingFrequencyIndex");
     if (bsSamplingFrequencyIndex==15)
@@ -634,8 +700,8 @@ void File_MpegHa::SAOC3DSpecificConfig()
     {
         speaker_layout saocChannelLayout;
         SpeakerConfig3d(saocChannelLayout);
-       //TODO: NumSaocChannels=SAOC3DgetNumChannels(saocChannelLayout);
-       //TODO: NumInputSignals+=NumSaocChannels ;
+       NumSaocChannels=SAOC3DgetNumChannels(saocChannelLayout);
+       NumInputSignals+=NumSaocChannels;
     }
 
     Get_S1(8, bsNumSaocObjects ,                                "bsNumSaocObjects");
@@ -655,7 +721,7 @@ void File_MpegHa::SAOC3DSpecificConfig()
 
     Skip_SB(                                                    "bsOneIOC");
     TEST_SB_SKIP(                                               "bsSaocDmxMethod");
-        //TODO: int8u NumPremixedChannels = SAOC3DgetNumChannels(referenceLayout);
+        NumPremixedChannels=SAOC3DgetNumChannels(DefaultLayout);
     TEST_SB_END();
 
     TEST_SB_SKIP(                                               "bsDualMode");
@@ -670,7 +736,66 @@ void File_MpegHa::SAOC3DSpecificConfig()
         TEST_SB_END();
     TEST_SB_END();
     Skip_S1(BS->Remain()%8,                                     "byte_align");
-    //TODO: SAOC3DExtensionConfig();
+    //TODO: SAOC3DExtensionConfig(); // in IEC 23003‐2
+    Element_End0();
+}
+
+//---------------------------------------------------------------------------
+int32u File_MpegHa::SAOC3DgetNumChannels(speaker_layout Layout)
+{
+    int32u ToReturn=Layout.numSpeakers;
+
+    for (int32u Pos=0; Pos<Layout.numSpeakers; Pos++)
+    {
+        if (Layout.SpeakersInfo.size()>Pos && Layout.SpeakersInfo[Pos].isLFE)
+            ToReturn--;
+    }
+
+    return ToReturn;
+}
+
+//---------------------------------------------------------------------------
+void File_MpegHa::TccConfig()
+{
+    for(int32u Pos=0; Pos<numElements; Pos++)
+    {
+        if(Elements.size()>Pos && (Elements[Pos].Type==ID_USAC_SCE || Elements[Pos].Type==ID_USAC_CPE))
+            Skip_S1(2,                                       "tccMode");
+    }
+}
+
+//---------------------------------------------------------------------------
+void File_MpegHa::EnhancedObjectMetadataConfig()
+{
+    bool hasCommonGroupExcludedSectors=false;
+
+    Element_Begin1("EnhancedObjectMetadataConfig");
+    TEST_SB_SKIP(                                               "hasDiffuseness");
+        Skip_SB(                                                "hasCommonGroupDiffuseness");
+    TEST_SB_END();
+
+    TEST_SB_SKIP(                                               "hasExcludedSectors");
+        TEST_SB_GET(hasCommonGroupExcludedSectors,              "hasCommonGroupExcludedSectors");
+            Skip_SB(                                            "useOnlyPredefinedSectors");
+        TEST_SB_END();
+    TEST_SB_END();
+
+    TEST_SB_SKIP(                                               "hasClosestSpeakerCondition");
+        Skip_S1(7,                                              "closestSpeakerThresholdAngle");
+    TEST_SB_END();
+
+    //TODO: num_objects ?
+    /*
+    for (int8u Pos=0; Pos<num_objects; Pos++)
+    {
+        TEST_SB_SKIP(                                           "hasDivergence");
+            Skip_S1(6,                                          "divergenceAzimuthRange");
+        TEST_SB_END();
+
+        if (!hasCommonGroupExcludedSectors)
+            Skip_SB(                                            "useOnlyPredefinedSectors");
+    }
+    */
     Element_End0();
 }
 
@@ -700,7 +825,7 @@ void File_MpegHa::mpegh3daConfigExtension()
         //TODO:    downmixConfig();
         //    break;
         //case ID_CONFIG_EXT_LOUDNESS_INFO:
-        //TODO:    mpegh3daLoudnessInfoSet();
+        //    mpegh3daLoudnessInfoSet();
         //    break;
         case ID_CONFIG_EXT_AUDIOSCENE_INFO:
             mae_AudioSceneInfo();
@@ -708,17 +833,50 @@ void File_MpegHa::mpegh3daConfigExtension()
         //case ID_CONFIG_EXT_HOA_MATRIX:
         //TODO:    HoaRenderingMatrixSet();
         //    break;
-        //case ID_CONFIG_EXT_ICG:
-        //TODO:    ICGConfig();
-        //    break;
-        //case ID_CONFIG_EXT_SIG_GROUP_INFO:
-        //TODO:    SignalGroupInformation();
-        //    break;
+        case ID_CONFIG_EXT_ICG:
+            ICGConfig();
+            break;
+        case ID_CONFIG_EXT_SIG_GROUP_INFO:
+            SignalGroupInformation();
+            break;
         default:
             Skip_BS(usacConfigExtLength*8,                      "reserved");
-            break;
         }
     }
+    Element_End0();
+}
+
+//---------------------------------------------------------------------------
+void File_MpegHa::SignalGroupInformation()
+{
+    Element_Begin1("SignalGroupInformation");
+    for (int8u Pos=0; Pos<bsNumSignalGroups+1; Pos++)
+    {
+        Skip_S1(3,                                              "groupPriority");
+        Skip_SB(                                                "fixedPosition");
+    }
+    Element_End0();
+}
+
+//---------------------------------------------------------------------------
+void File_MpegHa::ICGConfig()
+{
+    Element_Begin1("ICGConfig");
+    TEST_SB_SKIP(                                               "ICPresent");
+        for (int32u Pos=0; Pos<numElements; Pos++)
+        {
+            if (Elements.size()>Pos && Elements[Pos].Type==ID_USAC_CPE)
+                Skip_SB(                                        "ICinCPE");
+        }
+
+        TEST_SB_SKIP(                                           "ICGPreAppliedPresent");
+            for (int32u Pos=0; Pos<numElements; Pos++)
+            {
+                if (Elements.size()>Pos && Elements[Pos].Type==ID_USAC_CPE)
+                    Skip_SB(                                     "ICGPreAppliedCPE");
+            }
+        TEST_SB_END();
+    TEST_SB_END();
     Element_End0();
 }
 
