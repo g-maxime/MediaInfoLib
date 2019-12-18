@@ -19,11 +19,11 @@
 //TODO: move USAC content to its on class instead of expanding AAC class
 
 //---------------------------------------------------------------------------
-#if defined(MEDIAINFO_AAC_YES)
+//#if defined(MEDIAINFO_AAC_YES)
 //---------------------------------------------------------------------------
 
 //---------------------------------------------------------------------------
-#include "MediaInfo/Audio/File_Aac.h"
+#include "MediaInfo/Audio/File_Usac.h"
 #include <algorithm>
 using namespace std;
 //---------------------------------------------------------------------------
@@ -72,11 +72,29 @@ static const char* LoudnessMeaning[LoudnessMeaning_Size]=
 };
 
 //***************************************************************************
+// Constructor/Destructor
+//***************************************************************************
+
+//---------------------------------------------------------------------------
+File_Usac::File_Usac()
+:File__Analyze()
+{
+    channelConfiguration=(int8u)-1;
+    sampling_frequency_index=(int8u)-1;
+    extension_sampling_frequency_index=(int8u)-1;
+}
+
+//---------------------------------------------------------------------------
+File_Usac::~File_Usac()
+{
+}
+
+//***************************************************************************
 // Elements - USAC
 //***************************************************************************
 
 //---------------------------------------------------------------------------
-void File_Aac::UsacConfig()
+void File_Usac::UsacConfig()
 {
     // Init
     loudnessInfoSet_Present=false;
@@ -188,7 +206,7 @@ void File_Aac::UsacConfig()
 }
 
 //---------------------------------------------------------------------------
-void File_Aac::UsacDecoderConfig(int8u coreSbrFrameLengthIndex)
+void File_Usac::UsacDecoderConfig(int8u coreSbrFrameLengthIndex)
 {
     Element_Begin1("UsacDecoderConfig");
     int32u numElements;
@@ -221,7 +239,7 @@ void File_Aac::UsacDecoderConfig(int8u coreSbrFrameLengthIndex)
 }
 
 //---------------------------------------------------------------------------
-void File_Aac::UsacSingleChannelElementConfig(int8u coreSbrFrameLengthIndex)
+void File_Usac::UsacSingleChannelElementConfig(int8u coreSbrFrameLengthIndex)
 {
     Element_Begin1("UsacSingleChannelElementConfig");
 
@@ -233,7 +251,7 @@ void File_Aac::UsacSingleChannelElementConfig(int8u coreSbrFrameLengthIndex)
 }
 
 //---------------------------------------------------------------------------
-void File_Aac::UsacChannelPairElementConfig(int8u coreSbrFrameLengthIndex)
+void File_Usac::UsacChannelPairElementConfig(int8u coreSbrFrameLengthIndex)
 {
     Element_Begin1("UsacChannelPairElementConfig");
 
@@ -251,7 +269,7 @@ void File_Aac::UsacChannelPairElementConfig(int8u coreSbrFrameLengthIndex)
 }
 
 //---------------------------------------------------------------------------
-void File_Aac::UsacLfeElementConfig()
+void File_Usac::UsacLfeElementConfig()
 {
     // Nothing here
 }
@@ -266,7 +284,7 @@ static const char* UsacExtElementConfig_usacExtElementType[UsacExtElementConfig_
     "AUDIOPREROLL",
     "UNI_DRC",
 };
-void File_Aac::UsacExtElementConfig()
+void File_Usac::UsacExtElementConfig()
 {
     Element_Begin1("UsacExtElementConfig");
 
@@ -312,7 +330,7 @@ void File_Aac::UsacExtElementConfig()
 }
 
 //---------------------------------------------------------------------------
-void File_Aac::UsacCoreConfig()
+void File_Usac::UsacCoreConfig()
 {
     Element_Begin1("UsacCoreConfig");
 
@@ -323,7 +341,7 @@ void File_Aac::UsacCoreConfig()
 }
 
 //---------------------------------------------------------------------------
-void File_Aac::SbrConfig()
+void File_Usac::SbrConfig()
 {
     Element_Begin1("SbrConfig");
 
@@ -336,7 +354,7 @@ void File_Aac::SbrConfig()
 }
 
 //---------------------------------------------------------------------------
-void File_Aac::SbrDlftHeader()
+void File_Usac::SbrDlftHeader()
 {
     Element_Begin1("SbrDlftHeader");
 
@@ -363,7 +381,7 @@ void File_Aac::SbrDlftHeader()
 }
 
 //---------------------------------------------------------------------------
-void File_Aac::Mps212Config(int8u StereoConfigindex)
+void File_Usac::Mps212Config(int8u StereoConfigindex)
 {
     Element_Begin1("Mps212Config");
 
@@ -394,7 +412,7 @@ void File_Aac::Mps212Config(int8u StereoConfigindex)
 }
 
 //---------------------------------------------------------------------------
-void File_Aac::uniDrcConfig()
+void File_Usac::uniDrcConfig()
 {
     Element_Begin1("uniDrcConfig");
 
@@ -432,7 +450,7 @@ void File_Aac::uniDrcConfig()
 }
 
 //---------------------------------------------------------------------------
-void File_Aac::uniDrcConfigExtension()
+void File_Usac::uniDrcConfigExtension()
 {
     Element_Begin1("uniDrcConfigExtension");
 
@@ -522,7 +540,7 @@ void File_Aac::uniDrcConfigExtension()
 }
 
 //---------------------------------------------------------------------------
-void File_Aac::downmixInstructions(bool V1)
+void File_Usac::downmixInstructions(bool V1)
 {
     Element_Begin1("downmixInstructionsV1");
 
@@ -544,7 +562,7 @@ void File_Aac::downmixInstructions(bool V1)
 }
 
 //---------------------------------------------------------------------------
-void File_Aac::drcCoefficientsBasic()
+void File_Usac::drcCoefficientsBasic()
 {
     Element_Begin1("drcCoefficientsBasic");
 
@@ -555,7 +573,7 @@ void File_Aac::drcCoefficientsBasic()
 }
 
 //---------------------------------------------------------------------------
-void File_Aac::drcCoefficientsUniDrc(bool V1)
+void File_Usac::drcCoefficientsUniDrc(bool V1)
 {
     Element_Begin1(V1?"drcCoefficientsUniDrcV1":"drcCoefficientsUniDrc");
 
@@ -722,7 +740,7 @@ void File_Aac::drcCoefficientsUniDrc(bool V1)
 }
 
 //---------------------------------------------------------------------------
-void File_Aac::drcInstructionsBasic()
+void File_Usac::drcInstructionsBasic()
 {
     Element_Begin1("drcInstructionsBasic");
 
@@ -750,7 +768,7 @@ void File_Aac::drcInstructionsBasic()
         TEST_SB_END();
     TEST_SB_END();
 
-  Element_End0();
+    Element_End0();
 }
 
 static const size_t drcSetEffect_List_Size=12;
@@ -771,7 +789,7 @@ static const char* drcSetEffect_List[drcSetEffect_List_Size] =
 };
 
 //---------------------------------------------------------------------------
-void File_Aac::drcInstructionsUniDrc(bool V1)
+void File_Usac::drcInstructionsUniDrc(bool V1)
 {
     Element_Begin1("drcInstructionsUniDrcV1");
 
@@ -836,7 +854,7 @@ void File_Aac::drcInstructionsUniDrc(bool V1)
         Get_S1 (6, bsGainSetIndex,                              "bsGainSetIndex");
         if (!bsGainSetIndex || bsGainSetIndex>gainSets.size()) // 1-based
         {
-            Skip_BS(Data_BS_Remain(),                               "(Not implemented)");
+            Skip_BS(Data_BS_Remain(),                           "(Not implemented)");
             Element_End0();
             Element_End0();
             return;
@@ -920,7 +938,7 @@ void File_Aac::drcInstructionsUniDrc(bool V1)
 }
 
 //---------------------------------------------------------------------------
-void File_Aac::channelLayout()
+void File_Usac::channelLayout()
 {
     Element_Begin1("channelLayout");
 
@@ -955,7 +973,7 @@ static const char* UsacConfigExtension_usacConfigExtType[UsacConfigExtension_usa
     NULL,
     "STREAM_ID",
 };
-void File_Aac::UsacConfigExtension()
+void File_Usac::UsacConfigExtension()
 {
     Element_Begin1("UsacConfigExtension");
 
@@ -1007,7 +1025,7 @@ void File_Aac::UsacConfigExtension()
 }
 
 //---------------------------------------------------------------------------
-void File_Aac::loudnessInfoSet(bool V1)
+void File_Usac::loudnessInfoSet(bool V1)
 {
     Element_Begin1(V1?"loudnessInfoSetV1":"loudnessInfoSet");
     loudnessInfoSet_Present=true;
@@ -1022,7 +1040,7 @@ void File_Aac::loudnessInfoSet(bool V1)
         loudnessInfo(false, V1);
     if (!V1)
     {
-        Get_SB (loudnessInfoSetExtPresent,                     "loudnessInfoSetExtPresent");
+        Get_SB (loudnessInfoSetExtPresent,                      "loudnessInfoSetExtPresent");
         if (loudnessInfoSetExtPresent)
             loudnessInfoSetExtension();
     }
@@ -1036,7 +1054,7 @@ static const int8u methodDefinition_Format[methodDefinition_Format_Size]=
 {
     8, 8, 8, 8, 8, 8, 8, 5, 2, 8,
 };
-void File_Aac::loudnessInfo(bool FromAlbum, bool V1)
+void File_Usac::loudnessInfo(bool FromAlbum, bool V1)
 {
     Element_Begin1(V1?"loudnessInfoV1":"loudnessInfo");
 
@@ -1139,7 +1157,7 @@ void File_Aac::loudnessInfo(bool FromAlbum, bool V1)
 }
 
 //---------------------------------------------------------------------------
-void File_Aac::loudnessInfoSetExtension()
+void File_Usac::loudnessInfoSetExtension()
 {
     Element_Begin1("loudnessInfoSetExtension");
 
@@ -1170,7 +1188,7 @@ void File_Aac::loudnessInfoSetExtension()
 }
 
 //---------------------------------------------------------------------------
-void File_Aac::streamId()
+void File_Usac::streamId()
 {
     Element_Begin1("streamId");
 
@@ -1182,7 +1200,7 @@ void File_Aac::streamId()
 }
 
 //---------------------------------------------------------------------------
-void File_Aac::escapedValue(int32u &Value, int8u nBits1, int8u nBits2, int8u nBits3, const char* Name)
+void File_Usac::escapedValue(int32u &Value, int8u nBits1, int8u nBits2, int8u nBits3, const char* Name)
 {
     Element_Begin1(Name);
     Get_S4(nBits1, Value,                                       "nBits1");
@@ -1207,4 +1225,4 @@ void File_Aac::escapedValue(int32u &Value, int8u nBits1, int8u nBits2, int8u nBi
 
 } //NameSpace
 
-#endif //MEDIAINFO_AAC_YES
+//#endif //MEDIAINFO_AAC_YES

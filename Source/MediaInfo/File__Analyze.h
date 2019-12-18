@@ -1342,6 +1342,7 @@ protected :
     int64u Buffer_TotalBytes_FirstSynched_Max;
     int64u Buffer_TotalBytes_Fill_Max;
     friend class File__Tags_Helper;
+    friend class File_Usac;
     friend class File_Mk;
     friend class File_Mpeg4;
 
