@@ -40,7 +40,7 @@ extern const size_t Aac_sampling_frequency_Size;
 
 //---------------------------------------------------------------------------
 File_Aac::File_Aac()
-:File__Analyze(), File__Tags_Helper()
+: File__Tags_Helper(), File_Usac()
 {
     //Config
     #if MEDIAINFO_EVENTS
@@ -67,10 +67,7 @@ File_Aac::File_Aac()
 
     audioObjectType=(int8u)-1;
     extensionAudioObjectType=(int8u)-1;
-    channelConfiguration=(int8u)-1;
     frame_length=1024;
-    sampling_frequency_index=(int8u)-1;
-    extension_sampling_frequency_index=(int8u)-1;
     extension_sampling_frequency=(int32u)-1;
     aacSpectralDataResilienceFlag=false;
     aacSectionDataResilienceFlag=false;
