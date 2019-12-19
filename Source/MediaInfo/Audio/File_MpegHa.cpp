@@ -36,7 +36,7 @@ namespace MediaInfoLib
 
 //---------------------------------------------------------------------------
 File_MpegHa::File_MpegHa()
-:File__Analyze()
+:File_Usac()
 {
     //Configuration
     #if MEDIAINFO_TRACE

@@ -11,6 +11,7 @@
 
 //---------------------------------------------------------------------------
 #include "MediaInfo/Tag/File__Tags.h"
+#include "MediaInfo/Audio/File_Usac.h"
 //---------------------------------------------------------------------------
 
 namespace MediaInfoLib
@@ -20,7 +21,7 @@ namespace MediaInfoLib
 // Class File_MpegH
 //***************************************************************************
 
-class File_MpegHa : public File__Analyze
+class File_MpegHa : public File_Usac
 {
 public :
     //Constructor/Destructor
