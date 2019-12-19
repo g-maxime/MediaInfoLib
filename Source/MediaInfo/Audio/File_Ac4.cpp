@@ -457,8 +457,9 @@ static const sized_array_string Ac4_pre_dmixtyp_2ch=
 
 static const sized_array_string Ac4_phase90_info_2ch=
 {
-(const char*)3,
+(const char*)4,
 "",
+NULL,
 "Applied",
 "Not applied",
 };
@@ -824,7 +825,7 @@ void File_Ac4::Streams_Fill()
         Fill(Stream_Audio, 0, P.c_str(), Summary);
         Fill(Stream_Audio, 0, (P+" Pos").c_str(), p);
         Fill_SetOptions(Stream_Audio, 0, (P+" Pos").c_str(), "N NIY");
-        Fill(Stream_Audio, 0, (P+" ID").c_str(), p+1);
+        Fill(Stream_Audio, 0, (P+" PresentationID").c_str(), p+1);
         if (!ChannelMode.empty())
         {
             Fill(Stream_Audio, 0, (P+" ChannelMode").c_str(), ChannelMode);
@@ -836,7 +837,10 @@ void File_Ac4::Streams_Fill()
             Fill_SetOptions(Stream_Audio, 0, (P+" PresentationConfig").c_str(), "N NTY");
         }
         if (!presentation_config_String.empty() && presentation_config_String!=(Presentation_Current.presentation_config==(int8u)-1?"Main":Value(Ac4_presentation_config, Presentation_Current.presentation_config)))
-            Fill(Stream_Audio, 0, (P+" PresentationConfig_Expected").c_str(), presentation_config_String); //TODO
+        {
+            Fill(Stream_Audio, 0, (P+" PresentationConfig_ContentClassifier").c_str(), presentation_config_String); //TODO
+            Fill_SetOptions(Stream_Audio, 0, (P+" PresentationConfig_ContentClassifier").c_str(), "N NTY");
+        }
         if (Presentation_Current.LoudnessInfo.dialnorm_bits!=(int8u)-1)
             Fill(Stream_Audio, 0, (P+" DialogueNormalization").c_str(), -0.25*Presentation_Current.LoudnessInfo.dialnorm_bits, 2);
         if (!Presentation_Current.Language.empty())
@@ -850,7 +854,7 @@ void File_Ac4::Streams_Fill()
             Fill(Stream_Audio, 0, (P+" MultipleStream").c_str(), Presentation_Current.b_multi_pid_PresentAndValue?"Yes":"No");
         {
             const loudness_info& L=Presentation_Current.LoudnessInfo;
-            if (L.loudspchgat!=(int16u)-1 || L.loudrelgat!=(int16u)-1 || (L.loud_prac_type!=(int8u)-1 && L.loud_prac_type) || L.truepk!=(int16u)-1 || L.lra!=(int16u)-1)
+            if (L.loudspchgat!=(int16u)-1 || L.loudrelgat!=(int16u)-1 || (L.loud_prac_type!=(int8u)-1 && L.loud_prac_type) || L.lra!=(int16u)-1)
             {
                 Fill(Stream_Audio, 0, (P+" Loudness").c_str(), "Yes");
                 if (L.loudspchgat!=(int16u)-1)
@@ -871,8 +875,6 @@ void File_Ac4::Streams_Fill()
                         DialogueCorrected+=" ("+Value(Ac4_loud_dialgate_prac_type, L.loud_dialgate_prac_type)+')';
                     Fill(Stream_Audio, 0, (P+" Loudness DialogueCorrected").c_str(), DialogueCorrected);
                 }
-                if (L.truepk!=(int16u)-1)
-                    Fill(Stream_Audio, 0, (P+" Loudness TruePeak").c_str(), Ztring::ToZtring((L.truepk-1024)/10.0, 1)+__T(" dBTP"));
                 if (L.max_loudmntry!=(int16u)-1)
                     Fill(Stream_Audio, 0, (P+" Loudness MaximumMomentaryLoudness").c_str(), Ztring::ToZtring((L.max_loudmntry-1024)/10.0, 1)+__T(" LUFS"));
                 if (L.lra!=(int16u)-1)
@@ -941,10 +943,10 @@ void File_Ac4::Streams_Fill()
 
         string G=Ztring(__T("Group")+Ztring::ToZtring(g)).To_UTF8();
         const group& Group=Groups[g];
-        string Summary;
+        string PresentationConfig;
         //if (Group.ContentInfo.content_classifier!=(int8u)-1)
         //    Summary=Value(Ac4_content_classifier, Group.ContentInfo.content_classifier);
-        if (Summary.empty())
+        if (PresentationConfig.empty())
         {
             //Check content_classifer from presentations
             for (size_t p=0; p<Presentations.size(); p++)
@@ -966,34 +968,37 @@ void File_Ac4::Streams_Fill()
                         }
                         else
                             Summary2="?";
-                        if (Summary2!=Summary)
+                        if (Summary2!=PresentationConfig)
                         {
-                            if (!Summary.empty())
-                                Summary+=" / ";
-                            Summary+=Summary2;
+                            if (!PresentationConfig.empty())
+                                PresentationConfig+=" / ";
+                            PresentationConfig+=Summary2;
                         }
                     }
                 }
             }
-            if (Summary.empty() && Group.ContentInfo.content_classifier!=(int8u)-1)
-                Summary=Value(Ac4_content_classifier, Group.ContentInfo.content_classifier);
+            if (PresentationConfig.empty() && Group.ContentInfo.content_classifier!=(int8u)-1)
+                PresentationConfig=Value(Ac4_content_classifier, Group.ContentInfo.content_classifier);
 
-            if (Summary.empty())
-                Summary="?";
+            if (PresentationConfig.empty())
+                PresentationConfig="?";
         }
+        string Summary=PresentationConfig;
         if (!Group.ContentInfo.language_tag_bytes.empty())
         {
-            if (!Summary.empty())
-                Summary+=' ';
-            Summary+='(';
-            Summary+=MediaInfoLib::Config.Iso639_Translate(Ztring().From_UTF8(Group.ContentInfo.language_tag_bytes)).To_UTF8();
-            Summary+=')';
+            if (!PresentationConfig.empty())
+                PresentationConfig+=' ';
+            PresentationConfig+='(';
+            PresentationConfig+=MediaInfoLib::Config.Iso639_Translate(Ztring().From_UTF8(Group.ContentInfo.language_tag_bytes)).To_UTF8();
+            PresentationConfig+=')';
         }
         Fill(Stream_Audio, 0, Ztring(__T("Group")+Ztring::ToZtring(g)).To_UTF8().c_str(), Summary);
         Fill(Stream_Audio, 0, (G+" Pos").c_str(), g);
         Fill_SetOptions(Stream_Audio, 0, (G+" Pos").c_str(), "N NIY");
         Fill(Stream_Audio, 0, (G+" ID").c_str(), g+1);
         Fill_SetOptions(Stream_Audio, 0, (G+" ID").c_str(), "N NIY");
+        Fill(Stream_Audio, 0, (G+" PresentationConfig").c_str(), PresentationConfig);
+        Fill_SetOptions(Stream_Audio, 0, (G+" PresentationConfig").c_str(), "N NIY");
         if (Group.ContentInfo.content_classifier!=(int8u)-1)
             Fill(Stream_Audio, 0, (G+" Classifier").c_str(), Value(Ac4_content_classifier, Group.ContentInfo.content_classifier));
         if (!Group.ContentInfo.language_tag_bytes.empty())
@@ -1080,9 +1085,27 @@ void File_Ac4::Streams_Fill()
                                 ChannelMode2[4]-=2*(2-GroupInfo.top_channel_pairs);
                         }
                     }
-                    else if (GroupInfo.n_objects_code!=(int8u)-1)
+                    else if (GroupInfo.b_ajoc)
                     {
-                        ChannelMode2=Ztring::ToZtring(objs_to_n_objects(GroupInfo.n_objects_code, GroupInfo.b_lfe)).To_UTF8()+" objects";
+                        ChannelMode2="A-JOC ";
+                        ChannelMode2+=Ztring::ToZtring(GroupInfo.n_fullband_upmix_signals).To_UTF8();
+                        ChannelMode2+='.';
+                        ChannelMode2+='0'+GroupInfo.b_lfe;
+                        ChannelMode2+=" (";
+                        ChannelMode2+=Ztring::ToZtring(GroupInfo.n_fullband_dmx_signals).To_UTF8();
+                        ChannelMode2+='.';
+                        ChannelMode2+='0'+GroupInfo.b_lfe;
+                        ChannelMode2+=' ';
+                        ChannelMode2+=GroupInfo.b_static_dmx?"channel":"object";
+                        ChannelMode2+=" core)";
+                    }
+                    else if (!GroupInfo.b_ajoc && GroupInfo.n_objects_code!=(int8u)-1)
+                    {
+                        int8u n=objs_to_n_objects(GroupInfo.n_objects_code, GroupInfo.b_lfe);
+                        if (n!=(int8u)-1)
+                            ChannelMode2=Ztring::ToZtring(n).To_UTF8()+" objects";
+                        else
+                            ChannelMode2="n_objects_code="+Ztring::ToZtring(GroupInfo.n_objects_code).To_UTF8()+" b_lfe="+(GroupInfo.b_lfe?'1':'0');
                     }
                     if (!ChannelMode2.empty() && ChannelMode2!=ChannelMode)
                     {
@@ -1127,24 +1150,28 @@ void File_Ac4::Streams_Fill()
                     if (GroupInfo.ch_mode!=(int8u)-1)
                     {
                         //Channel based
-                        Fill(Stream_Audio, 0, (S + " ChannelLayout").c_str(), AC4_nonstd_bed_channel_assignment_mask_ChannelLayout(Ac4_ch_mode_2_nonstd(GroupInfo.ch_mode, GroupInfo.b_4_back_channels_present, GroupInfo.b_centre_present, GroupInfo.top_channels_present)));
+                        Fill_Dup(Stream_Audio, 0, (S + " ChannelLayout").c_str(), AC4_nonstd_bed_channel_assignment_mask_ChannelLayout(Ac4_ch_mode_2_nonstd(GroupInfo.ch_mode, GroupInfo.b_4_back_channels_present, GroupInfo.b_centre_present, GroupInfo.top_channels_present)));
                     }
-                    else if (GroupInfo.ch_mode==(int8u)-1 && !GroupInfo.b_ajoc && GroupInfo.n_objects_code!=(int8u)-1)
+                    else if (GroupInfo.ch_mode==(int8u)-1 && (GroupInfo.b_ajoc || GroupInfo.n_objects_code!=(int8u)-1))
                     {
                         //Object based
-                        int8u n_objects=objs_to_n_objects(GroupInfo.n_objects_code, GroupInfo.b_lfe);
-                        Fill(Stream_Audio, 0, (S+" NumberOfObjects").c_str(), n_objects);
+                        int8u n_objects;
+                        if (!GroupInfo.b_ajoc)
+                        {
+                            n_objects=objs_to_n_objects(GroupInfo.n_objects_code, GroupInfo.b_lfe);
+                            Fill_Dup(Stream_Audio, 0, (S+" NumberOfObjects").c_str(), Ztring::ToZtring(n_objects));
+                        }
                         if (GroupInfo.nonstd_bed_channel_assignment_mask!=(int32u)-1)
                         {
                             Ztring BedChannelConfiguration=AC4_nonstd_bed_channel_assignment_mask_ChannelLayout(GroupInfo.nonstd_bed_channel_assignment_mask);
                             int8u num_channels_in_bed=AC4_nonstd_bed_channel_assignment_mask_2_num_channels_in_bed(GroupInfo.nonstd_bed_channel_assignment_mask);
-                            if (n_objects>num_channels_in_bed)
-                                Fill(Stream_Audio, 0, (S+" NumberOfDynamicObjects").c_str(), n_objects-num_channels_in_bed);
-                            Fill(Stream_Audio, 0, (S+" BedChannelCount").c_str(), num_channels_in_bed);
+                            if (!GroupInfo.b_ajoc && n_objects>num_channels_in_bed)
+                                Fill_Dup(Stream_Audio, 0, (S+" NumberOfDynamicObjects").c_str(), Ztring::ToZtring(n_objects-num_channels_in_bed));
+                            Fill_Dup(Stream_Audio, 0, (S+" BedChannelCount").c_str(), Ztring::ToZtring(num_channels_in_bed));
                             Fill_SetOptions(Stream_Audio, 0, (S+" BedChannelCount").c_str(), "N NIY");
-                            Fill(Stream_Audio, 0, (S+" BedChannelCount/String").c_str(), MediaInfoLib::Config.Language_Get(Ztring::ToZtring(num_channels_in_bed), __T(" channel")));
+                            Fill_Dup(Stream_Audio, 0, (S+" BedChannelCount/String").c_str(), MediaInfoLib::Config.Language_Get(Ztring::ToZtring(num_channels_in_bed), __T(" channel")));
                             Fill_SetOptions(Stream_Audio, 0, (S+" BedChannelCount/String").c_str(), "Y NIN");
-                            Fill(Stream_Audio, 0, (S+" BedChannelConfiguration").c_str(), BedChannelConfiguration);
+                            Fill_Dup(Stream_Audio, 0, (S+" BedChannelConfiguration").c_str(), BedChannelConfiguration);
                         }
                     }
                 }
@@ -1152,8 +1179,6 @@ void File_Ac4::Streams_Fill()
 
         if (Substream_Info->second.LoudnessInfo.dialnorm_bits!=(int8u)-1)
             Fill(Stream_Audio, 0, (S+" dialnorm").c_str(), -0.25*Substream_Info->second.LoudnessInfo.dialnorm_bits, 2);
-        if (Substream_Info->second.LoudnessInfo.truepk!=(int16u)-1)
-            Fill(Stream_Audio, 0, (S+" TruePeak").c_str(), (Substream_Info->second.LoudnessInfo.truepk-1024)/10.0, 1);
         {
             const preprocessing& P=Substream_Info->second.Preprocessing;
             if (P.pre_dmixtyp_2ch!=(int8u)-1 || P.pre_dmixtyp_5ch!=(int8u)-1 || P.phase90_info_mc!=(int8u)-1)
@@ -1925,7 +1950,7 @@ void File_Ac4::ac4_sgi_specifier(presentation& P)
         {
             int32u group_index32;
             Get_V4(2, group_index32,                            "group_index");
-            group_index+=(int8u)max_group_index;
+            group_index+=(int8u)group_index32;
         }
         if (max_group_index<group_index)
             max_group_index=group_index;
@@ -2178,30 +2203,29 @@ void File_Ac4::ac4_substream_info_ajoc(group_substream& G, bool b_substreams_pre
     G.sus_ver=true;
     G.substream_type=Type_Ac4_Substream;
 
-    bool b_lfe;
-    int8u n_fullband_dmx_signals, n_fullband_upmix_signals, substream_index;
+    int8u substream_index;
     Element_Begin1(                                             "ac4_substream_info_ajoc");
-    Get_SB (b_lfe,                                              "b_lfe");
+    Get_SB (G.b_lfe,                                            "b_lfe");
     TESTELSE_SB_GET (G.b_static_dmx,                            "b_static_dmx");
-        n_fullband_dmx_signals=5;
+        G.n_fullband_dmx_signals=5;
     TESTELSE_SB_ELSE(                                           "b_static_dmx");
-        Get_S1(4, n_fullband_dmx_signals,                       "n_fullband_dmx_signals_minus1");
-        n_fullband_dmx_signals++;
-        bed_dyn_obj_assignment(n_fullband_dmx_signals);
+        Get_S1(4, G.n_fullband_dmx_signals,                     "n_fullband_dmx_signals_minus1");
+        G.n_fullband_dmx_signals++;
+        bed_dyn_obj_assignment(G);
     TESTELSE_SB_END();
     TEST_SB_SKIP(                                               "b_oamd_common_data_present");
         oamd_common_data();
     TEST_SB_END();
-    Get_S1(4, n_fullband_upmix_signals,                         "n_fullband_upmix_signals_minus1");
-    n_fullband_upmix_signals++;
-    if (n_fullband_upmix_signals==16)
+    Get_S1(4, G.n_fullband_upmix_signals,                       "n_fullband_upmix_signals_minus1");
+    G.n_fullband_upmix_signals++;
+    if (G.n_fullband_upmix_signals==16)
     {
         int32u n_fullband_upmix_signals32;
         Get_V4(3, n_fullband_upmix_signals32,                   "n_fullband_upmix_signals");
         n_fullband_upmix_signals32+=16;
-        n_fullband_upmix_signals=(int8u)n_fullband_upmix_signals32;
+        G.n_fullband_upmix_signals=(int8u)n_fullband_upmix_signals32;
     }
-    bed_dyn_obj_assignment(n_fullband_upmix_signals);
+    bed_dyn_obj_assignment(G);
     if (fs_index)
     {
         TEST_SB_SKIP(                                           "b_sf_multiplier");
@@ -2231,7 +2255,7 @@ void File_Ac4::ac4_substream_info_ajoc(group_substream& G, bool b_substreams_pre
     Element_End0();
 
     if (G.b_static_dmx)
-        G.ch_mode_core=b_lfe?4:3;
+        G.ch_mode_core=3+G.b_lfe;
 }
 
 //---------------------------------------------------------------------------
@@ -2357,7 +2381,7 @@ void File_Ac4::presentation_config_ext_info(int8u presentation_config)
 }
 
 //---------------------------------------------------------------------------
-void File_Ac4::bed_dyn_obj_assignment(int8u n_signals)
+void File_Ac4::bed_dyn_obj_assignment(group_substream& G)
 {
     Element_Begin1(                                             "bed_dyn_obj_assignment");
         TESTELSE_SB_SKIP(                                       "b_dyn_objects_only");
@@ -2366,19 +2390,23 @@ void File_Ac4::bed_dyn_obj_assignment(int8u n_signals)
                 Skip_S1(3,                                      "isf_config");
             TESTELSE_SB_ELSE(                                   "b_isf");
                 TESTELSE_SB_SKIP(                               "b_ch_assign_code");
-                    Skip_S1(3,                                  "bed_chan_assign_code");
+                    int8u bed_chan_assign_code;
+                    Get_S1 (3, bed_chan_assign_code,            "bed_chan_assign_code");
+                    G.nonstd_bed_channel_assignment_mask=AC4_bed_chan_assign_code_2_nonstd(bed_chan_assign_code);
                 TESTELSE_SB_ELSE(                               "b_ch_assign_code");
                     TESTELSE_SB_SKIP(                           "b_chan_assign_mask");
                         TESTELSE_SB_SKIP(                       "b_nonstd_bed_channel_assignment");
-                            Skip_S3(17,                         "nonstd_bed_channel_assignment_mask");
+                            Get_S3 (17, G.nonstd_bed_channel_assignment_mask, "nonstd_bed_channel_assignment_mask");
                         TESTELSE_SB_ELSE(                       "b_nonstd_bed_channel_assignment");
-                            Skip_S2(10,                         "std_bed_channel_assignment_mask");
+                            int16u std_bed_channel_assignment_mask;
+                            Get_S2 (10, std_bed_channel_assignment_mask, "std_bed_channel_assignment_mask");
+                            G.nonstd_bed_channel_assignment_mask=AC4_bed_channel_assignment_mask_2_nonstd(std_bed_channel_assignment_mask);
                         TEST_SB_END();
                     TESTELSE_SB_ELSE(                           "b_chan_assign_mask");
                         int8u n_bed_signals;
-                        if (n_signals>1)
+                        if (G.n_fullband_dmx_signals>1)
                         {
-                            int8u bed_ch_bits=ceil(log2(n_signals));
+                            int8u bed_ch_bits=ceil(log2(G.n_fullband_dmx_signals));
                             Get_S1(bed_ch_bits, n_bed_signals,  "n_bed_signals_minus1"); // TODO: suffcient ?
                             n_bed_signals++;
                         }
@@ -2390,6 +2418,8 @@ void File_Ac4::bed_dyn_obj_assignment(int8u n_signals)
                             Skip_S1(4,                          "nonstd_bed_channel_assignment");
                     TESTELSE_SB_END();
                 TESTELSE_SB_END();
+                if (G.nonstd_bed_channel_assignment_mask!=(int8u)-1)
+                    G.b_lfe=G.nonstd_bed_channel_assignment_mask&(1<<3);
             TESTELSE_SB_END();
         TESTELSE_SB_END();
     Element_End0();
@@ -3832,7 +3862,7 @@ void File_Ac4::further_loudness_info(loudness_info& L, bool sus_ver, bool b_pres
         Skip_S2(11,                                             "max_loudstrm3s");
     TEST_SB_END();
     TEST_SB_SKIP(                                               "b_truepk");
-        Get_S2 (11, L.truepk,                                   "truepk");
+        Skip_S2(11,                                             "truepk");
     TEST_SB_END();
     TEST_SB_SKIP(                                               "b_max_truepk");
         Skip_S2(11,                                             "max_truepk");

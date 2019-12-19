@@ -1046,6 +1046,14 @@ void File__Analyze::Fill (stream_t StreamKind, size_t StreamPos, size_t Paramete
 }
 
 //---------------------------------------------------------------------------
+void File__Analyze::Fill_Dup(stream_t StreamKind, size_t StreamPos, const char* Parameter, const Ztring& Value, bool Replace)
+{
+    const Ztring& OldValue=Retrieve_Const(StreamKind, StreamPos, Parameter);
+    if (Value!=OldValue)
+        Fill(StreamKind, StreamPos, Parameter, Value, Replace);
+}
+
+//---------------------------------------------------------------------------
 void File__Analyze::Fill (stream_t StreamKind, size_t StreamPos, const char* Parameter, const Ztring &Value, bool Replace)
 {
     //Integrity

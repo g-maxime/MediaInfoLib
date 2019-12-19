@@ -329,7 +329,6 @@ public :
         int16u loudrelgat;
         int16u loudspchgat;
         int8u loudspchgat_dialgate_prac_type;
-        int16u truepk;
         int16u lra;
         int8u lra_prac_type;
         int16u max_loudmntry;
@@ -340,7 +339,6 @@ public :
             loud_dialgate_prac_type((int8u)-1),
             loudrelgat((int16u)-1),
             loudspchgat((int16u)-1),
-            truepk((int16u)-1),
             lra((int16u)-1),
             max_loudmntry((int16u)-1)
         {}
@@ -504,6 +502,8 @@ private :
         // b_ajoc
         bool b_ajoc;
         bool b_static_dmx;
+        int8u n_fullband_upmix_signals;
+        int8u n_fullband_dmx_signals;
 
         // !b_ajoc
         int8u n_objects_code;
@@ -575,7 +575,7 @@ private :
     void ac4_substream_info_obj(group_substream& G, bool b_substreams_present);
     void ac4_presentation_substream_info(presentation& P);
     void presentation_config_ext_info(int8u presentation_config);
-    void bed_dyn_obj_assignment(int8u n_signals);
+    void bed_dyn_obj_assignment(group_substream& G);
     void content_type(content_info& ContentInfo);
     void frame_rate_multiply_info();
     void frame_rate_fractions_info();
