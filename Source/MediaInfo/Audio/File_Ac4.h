@@ -360,12 +360,57 @@ public :
         {}
     };
 
+    struct drc_decoder_config_curve
+    {
+        int8u drc_lev_nullband_low;
+        int8u drc_lev_nullband_high;
+        int8u drc_gain_max_boost;
+        int8u drc_gain_max_cut;
+        int8u drc_lev_max_cut;
+        int8u drc_gain_section_cut;
+        int8u drc_lev_section_cut;
+        int8u drc_tc_attack;
+        int8u drc_tc_release;
+        int8u drc_tc_attack_fast;
+        int8u drc_tc_release_fast;
+        int8u drc_attack_threshold;
+        int8u drc_release_threshold;
+
+        drc_decoder_config_curve()
+        {
+            memset(this, -1, sizeof(drc_decoder_config_curve));
+        }
+
+        drc_decoder_config_curve(int8u drc_lev_nullband_low_, int8u drc_lev_nullband_high_, int8u drc_gain_max_boost_, int8u drc_gain_max_cut_, int8u drc_lev_max_cut_, int8u drc_gain_section_cut_, int8u drc_lev_section_cut_, int8u drc_tc_attack_, int8u drc_tc_release_, int8u drc_tc_attack_fast_, int8u drc_tc_release_fast_, int8u drc_attack_threshold_, int8u drc_release_threshold_) :
+            drc_lev_nullband_low(drc_lev_nullband_low_),
+            drc_lev_nullband_high(drc_lev_nullband_high_),
+            drc_gain_max_boost(drc_gain_max_boost_),
+            drc_gain_max_cut(drc_gain_max_cut_),
+            drc_lev_max_cut(drc_lev_max_cut_),
+            drc_gain_section_cut(drc_gain_section_cut_),
+            drc_lev_section_cut(drc_lev_section_cut_),
+            drc_tc_attack(drc_tc_attack_),
+            drc_tc_release(drc_tc_release_),
+            drc_tc_attack_fast(drc_tc_attack_fast_),
+            drc_tc_release_fast(drc_tc_release_fast_),
+            drc_attack_threshold(drc_attack_threshold_),
+            drc_release_threshold(drc_release_threshold_)
+        {
+        }
+
+        bool operator==(const drc_decoder_config_curve& C)
+        {
+            return !memcmp(this, &C, sizeof(drc_decoder_config_curve));
+        }
+    };
+
     struct drc_decoder_config
     {
         int8u drc_repeat_id;
         bool drc_default_profile_flag;
         int8u drc_decoder_mode_id;
         bool drc_compression_curve_flag;
+        drc_decoder_config_curve drc_compression_curve;
         int8u drc_gains_config;
 
         drc_decoder_config() :
@@ -432,7 +477,7 @@ public :
             content_classifier((int8u)-1)
         {}
     };
-    
+
     //Constructor/Destructor
     File_Ac4();
     ~File_Ac4();
@@ -610,7 +655,7 @@ private :
     void drc_data(drc_info& DrcInfo);
     void drc_gains(drc_decoder_config& Decoder);
     void drc_decoder_mode_config(drc_decoder_config& Decoder);
-    void drc_compression_curve();
+    void drc_compression_curve(drc_decoder_config_curve& Curve);
 
     void further_loudness_info(loudness_info& LoudnessInfo, bool sus_ver, bool b_presentation_ldn);
 

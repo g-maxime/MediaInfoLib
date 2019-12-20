@@ -367,10 +367,22 @@ static const int8u Ac4_presentation_config_split[8][3]=
     {(int8u)-1, (int8u)-1, (int8u)-1},
 };
 
+const size_t Curve_Profiles_Count=6;
+const int8u m1=(int8u)-1;
+static File_Ac4::drc_decoder_config_curve Curve_Profiles_Values[Curve_Profiles_Count]=
+{
+    { 0,  0,  0,  0, m1, m1, m1, m1,  m1, m1, m1, m1, m1},
+    { 0,  5,  6, 24, 19,  4,  9, 20,  75,  2, 50, 15, 20},
+    {10, 10,  6, 24, 19,  4,  9, 20,  75,  2, 50, 15, 20},
+    { 0,  5, 12, 24, 19,  4,  9, 20, 250,  2, 50, 15, 20},
+    {10, 10, 12, 15, 29, m1, m1, 20,  75,  2, 50, 15, 20},
+    { 0,  5, 15, 24, 19,  4,  9, 20,  25,  2, 10, 10, 10},
+};
+
 static const sized_array_string Ac4_drc_eac3_profile=
 {
-(const char*)6,
-"None",
+(const char*)Curve_Profiles_Count,
+"",
 "Film standard",
 "Film light",
 "Music standard",
@@ -895,7 +907,13 @@ void File_Ac4::Streams_Fill()
                     if (C.drc_default_profile_flag)
                         V=Value(Ac4_drc_eac3_profile, D.drc_eac3_profile);
                     else if (C.drc_compression_curve_flag)
-                        V="Custom";
+                    {
+                        for (size_t i=0; i<Curve_Profiles_Count; i++)
+                            if (C.drc_compression_curve==Curve_Profiles_Values[i])
+                                V=Value(Ac4_drc_eac3_profile, i);
+                        if (V.empty())
+                            V="Custom";
+                    }
                     else
                         V="DRC gains";
                     Fill(Stream_Audio, 0, (P+" DynamicRangeControl "+Value(Ac4_drc_decoder_mode_id, C.drc_decoder_mode_id)).c_str(), V);
@@ -1381,7 +1399,7 @@ void File_Ac4::Header_Parse()
 //---------------------------------------------------------------------------
 void File_Ac4::Data_Parse()
 {
-    Element_Info(Frame_Count);
+    Element_Info1(Frame_Count);
 
     //CRC
     if (Element_Code==0xAC41)
@@ -3770,7 +3788,7 @@ void File_Ac4::drc_decoder_mode_config(drc_decoder_config& D)
             D.drc_compression_curve_flag=true;
         TESTELSE_SB_ELSE(                                       "drc_default_profile_flag");
             TESTELSE_SB_GET(D.drc_compression_curve_flag,       "drc_compression_curve_flag[drc_decoder_mode_id[pcount]]");
-                drc_compression_curve();
+                drc_compression_curve(D.drc_compression_curve);
             TESTELSE_SB_ELSE(                                   "drc_compression_curve_flag[drc_decoder_mode_id[pcount]]");
                 Get_S1 (2, D.drc_gains_config,                  "drc_gains_config[drc_decoder_mode_id[pcount]]");
             TESTELSE_SB_END();
@@ -3779,16 +3797,16 @@ void File_Ac4::drc_decoder_mode_config(drc_decoder_config& D)
     Element_End0();
 };
 
-//---------------------------------------------------------------------------
-void File_Ac4::drc_compression_curve()
+void File_Ac4::drc_compression_curve(drc_decoder_config_curve& C)
 {
-    int8u drc_gain_max_boost, drc_gain_max_cut;
-    Element_Begin1("drc_compression_curve");
-    Skip_S1(4,                                                  "drc_lev_nullband_low");
-    Skip_S1(4,                                                  "drc_lev_nullband_high");
+    memset(&C, -1, sizeof(C));
 
-    Get_S1(4, drc_gain_max_boost,                               "drc_gain_max_boost");
-    if (drc_gain_max_boost)
+    Element_Begin1("drc_compression_curve");
+    Get_S1 (4, C.drc_lev_nullband_low,                          "drc_lev_nullband_low");
+    Get_S1 (4, C.drc_lev_nullband_high,                         "drc_lev_nullband_high");
+
+    Get_S1 (4, C.drc_gain_max_boost,                            "drc_gain_max_boost");
+    if (C.drc_gain_max_boost)
     {
         Skip_S1(5,                                              "drc_lev_max_boost");
         TEST_SB_SKIP(                                           "drc_nr_boost_sections");
@@ -3797,26 +3815,26 @@ void File_Ac4::drc_compression_curve()
         TEST_SB_END();
     }
 
-    Get_S1(5, drc_gain_max_cut,                                 "drc_gain_max_cut");
-    if (drc_gain_max_cut)
+    Get_S1 (5, C.drc_gain_max_cut,                              "drc_gain_max_cut");
+    if (C.drc_gain_max_cut)
     {
-        Skip_S1(6,                                              "drc_lev_max_cut");
+        Get_S1 (6, C.drc_lev_max_cut,                           "drc_lev_max_cut");
         TEST_SB_SKIP(                                           "drc_nr_cut_sections");
-            Skip_S1(5,                                          "drc_gain_section_cut");
-            Skip_S1(5,                                          "drc_lev_section_cut");
+            Get_S1 (5, C.drc_gain_section_cut,                  "drc_gain_section_cut");
+            Get_S1 (5, C.drc_lev_section_cut,                   "drc_lev_section_cut");
         TEST_SB_END();
     }
 
     TESTELSE_SB_SKIP(                                           "drc_tc_default_flag");
     TESTELSE_SB_ELSE(                                           "drc_tc_default_flag");
-        Skip_S1(8,                                              "drc_tc_attack");
-        Skip_S1(8,                                              "drc_tc_release");
-        Skip_S1(8,                                              "drc_tc_attack_fast");
-        Skip_S1(8,                                              "drc_tc_release_fast");
+        Get_S1 (8, C.drc_tc_attack,                             "drc_tc_attack");
+        Get_S1 (8, C.drc_tc_release,                            "drc_tc_release");
+        Get_S1 (8, C.drc_tc_attack_fast,                        "drc_tc_attack_fast");
+        Get_S1 (8, C.drc_tc_release_fast,                       "drc_tc_release_fast");
 
         TEST_SB_SKIP(                                           "drc_adaptive_smoothing_flag");
-            Skip_S1(5,                                          "drc_attack_threshold");
-            Skip_S1(5,                                          "drc_release_threshold");
+            Get_S1 (5, C.drc_attack_threshold,                  "drc_attack_threshold");
+            Get_S1 (5, C.drc_release_threshold,                 "drc_release_threshold");
         TEST_SB_END();
     TESTELSE_SB_END();
     Element_End0();
