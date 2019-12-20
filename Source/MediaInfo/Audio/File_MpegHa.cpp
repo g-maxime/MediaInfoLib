@@ -136,6 +136,7 @@ void File_MpegHa::Sync()
     Skip_B1(                                                    "syncword");
 }
 
+/*
 //***************************************************************************
 // Duplicated USAC functions
 // TODO: move to shared USAC class
@@ -231,7 +232,7 @@ void File_MpegHa::Mps212Config(int8u StereoConfigindex)
 
     Element_End0();
 }
-
+*/
 //***************************************************************************
 // MPEGH3DACFG
 //***************************************************************************
@@ -516,9 +517,9 @@ void File_MpegHa::mpegh3daExtElementConfig()
         //TODO: SAOCSpecificConfig(); // In IEC 23003‐2
         //break;
     case ID_EXT_ELE_AUDIOPREROLL: break; // No configuration element
-    //case ID_EXT_ELE_UNI_DRC:
-        //mpegh3daUniDrcConfig();
-        //break;
+    case ID_EXT_ELE_UNI_DRC:
+        mpegh3daUniDrcConfig();
+        break;
     case ID_EXT_ELE_OBJ_METADATA:
         ObjectMetadataConfig();
         break;
@@ -555,7 +556,7 @@ void File_MpegHa::mpegh3daExtElementConfig()
         if (Size<8)
             Peek_S1((int8u)Size, Padding);
 
-        Skip_S1(Size, Padding?"(Unknown)":"Padding");
+        Skip_BS(Size, Padding?"(Unknown)":"Padding");
     }
 
     Element_End0();
@@ -598,9 +599,7 @@ void File_MpegHa::mpegh3daUniDrcConfig()
     Element_End0();
 
     for (int8u Pos=0; Pos<drcCoefficientsUniDrcCount; Pos++)
-    {
-        //TODO: drcCoefficientsUniDrc(); // in File_USAC.cpp
-    }
+        drcCoefficientsUniDrc(); // in File_USAC.cpp
 
     for (int8u Pos=0; Pos<drcInstructionsUniDrcCount; Pos++)
     {
@@ -613,11 +612,11 @@ void File_MpegHa::mpegh3daUniDrcConfig()
         else if (drcInstructionsType==3)
             Skip_S1(5,                                          "mae_groupPresetID");
 
-        //TODO: drcInstructionsUniDrc(); // in File_USAC.cpp
+        drcInstructionsUniDrc(); // in File_USAC.cpp
     }
 
     TEST_SB_SKIP(                                               "uniDrcConfigExtPresent");
-        //TODO: uniDrcConfigExtension(); // in File_USAC.cpp
+        uniDrcConfigExtension(); // in File_USAC.cpp
     TEST_SB_END();
 
     TEST_SB_SKIP(                                               "loudnessInfoSetPresent");
@@ -641,7 +640,7 @@ void File_MpegHa::mpegh3daLoudnessInfoSet()
         else if (loudnessInfoType==3)
             Skip_S1(5,                                          "mae_groupPresetID");
 
-        //TODO: loudnessInfo(); // in File_USAC.cpp
+        loudnessInfo(false); // in File_USAC.cpp
     }
 
     TEST_SB_SKIP(                                               "loudnessInfoAlbumPresent");
@@ -649,13 +648,13 @@ void File_MpegHa::mpegh3daLoudnessInfoSet()
         Get_S1(6, loudnessInfoAlbumCount,                       "loudnessInfoAlbumCount");
         for (int8u Pos=0; Pos<loudnessInfoAlbumCount; Pos++)
         {
-            //TODO: loudnessInfo(); // in File_USAC.cpp
+            loudnessInfo(true); // in File_USAC.cpp
         }
     TEST_SB_END();
 
     TEST_SB_SKIP(                                               "loudnessInfoSetExtensionPresent");
+        loudnessInfoSetExtension(); // in File_USAC.cpp
     TEST_SB_END();
-    //TODO: loudnessInfoSetExtension(); // in File_USAC.cpp
     Element_End0();
 }
 
@@ -815,6 +814,7 @@ void File_MpegHa::mpegh3daConfigExtension()
         int32u usacConfigExtLength;
         escapedValue(usacConfigExtLength, 4, 8, 16,             "usacConfigExtLength");
 
+        size_t Remain_Before=BS->Remain();
         switch ((UsacConfigExtType)usacConfigExtType)
         {
         case ID_CONFIG_EXT_FILL:
@@ -824,9 +824,9 @@ void File_MpegHa::mpegh3daConfigExtension()
         //case ID_CONFIG_EXT_DOWNMIX:
         //TODO:    downmixConfig();
         //    break;
-        //case ID_CONFIG_EXT_LOUDNESS_INFO:
-        //    mpegh3daLoudnessInfoSet();
-        //    break;
+        case ID_CONFIG_EXT_LOUDNESS_INFO:
+            mpegh3daLoudnessInfoSet();
+            break;
         case ID_CONFIG_EXT_AUDIOSCENE_INFO:
             mae_AudioSceneInfo();
             break;
@@ -841,6 +841,15 @@ void File_MpegHa::mpegh3daConfigExtension()
             break;
         default:
             Skip_BS(usacConfigExtLength*8,                      "reserved");
+        }
+        if (BS->Remain()+usacConfigExtLength*8>Remain_Before)
+        {
+            size_t Size=BS->Remain()+usacConfigExtLength*8-Remain_Before;
+            int8u Padding=1;
+            if (Size<8)
+                Peek_S1((int8u)Size, Padding);
+
+            Skip_BS(Size, Padding?"(Unknown)":"Padding");
         }
     }
     Element_End0();

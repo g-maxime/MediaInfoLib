@@ -157,10 +157,10 @@ private :
     //Elements
     void Sync();
 
-    void escapedValue(int32u& Value, int8u nBits1, int8u nBits2, int8u nBits3, const char* Name);
-    void SbrConfig();
-    void SbrDlftHeader();
-    void Mps212Config(int8u StereoConfigindex);
+    //void escapedValue(int32u& Value, int8u nBits1, int8u nBits2, int8u nBits3, const char* Name);
+    //void SbrConfig();
+    //void SbrDlftHeader();
+    //void Mps212Config(int8u StereoConfigindex);
 
     void mpegh3daConfig();
     void SpeakerConfig3d(speaker_layout& Layout);
