@@ -325,6 +325,7 @@ public :
         int8u dialnorm_bits; //TODO
         int8u loud_prac_type;
         int8u loud_dialgate_prac_type;
+        int16u max_truepk;
         bool b_loudcorr_type;
         int16u loudrelgat;
         int16u loudspchgat;
@@ -337,6 +338,7 @@ public :
             dialnorm_bits((int8u)-1),
             loud_prac_type((int8u)-1),
             loud_dialgate_prac_type((int8u)-1),
+            max_truepk((int16u)-1),
             loudrelgat((int16u)-1),
             loudspchgat((int16u)-1),
             lra((int16u)-1),
@@ -517,6 +519,7 @@ private :
         //Computed
         int8u pres_ch_mode;
         int8u pres_ch_mode_core;
+        int8u pres_immersive_stereo;
         int8u n_substreams_in_presentation;
         bool b_pres_4_back_channels_present;
         bool b_pres_centre_present;
@@ -558,12 +561,14 @@ private :
 
         // Computed
         int8u ch_mode_core;
+        int8u immersive_stereo;
         int8u top_channel_pairs;
 
         group_substream() :
             sus_ver(false),
             ch_mode((int8u)-1),
             ch_mode_core((int8u)-1),
+            immersive_stereo((int8u)-1),
             top_channels_present((int8u)-1),
             hsf_substream_index((int8u)-1),
             nonstd_bed_channel_assignment_mask((int32u)-1)
@@ -615,7 +620,7 @@ private :
     void ac4_substream_info(presentation& P);
     void ac4_substream_group_info(presentation* P=NULL);
     void ac4_hsf_ext_substream_info(group_substream& G, bool b_substreams_present);
-    void ac4_substream_info_chan(group_substream& G, bool b_substreams_present);
+    void ac4_substream_info_chan(group_substream& G, size_t Pos, bool b_substreams_present);
     void ac4_substream_info_ajoc(group_substream& G, bool b_substreams_present);
     void ac4_substream_info_obj(group_substream& G, bool b_substreams_present);
     void ac4_presentation_substream_info(presentation& P);

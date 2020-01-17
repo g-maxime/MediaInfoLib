@@ -256,6 +256,23 @@ enum ch
     Lw   = 1 << 14,
     Rw   = 1 << 15,
     LFE2 = 1 << 16,
+    // Not in nonstd_bed_channel_assignment
+    Bc   = 1 << 17,
+    Lscr = 1 << 18,
+    Rscr = 1 << 19,
+    Tsl  = 1 << 20,
+    Tsr  = 1 << 21,
+    Tc   = 1 << 22,
+    Bfl  = 1 << 23,
+    Bfr  = 1 << 24,
+    Bfc  = 1 << 25,
+};
+
+static const sized_array_string Ac4_immersive_stereo_String=
+{
+(const char*)2,
+"Multichannel Content",
+"Dolby Atmos Content",
 };
 
 static int32u Ac4_ch_mode_2_nonstd_Values[16]=
@@ -269,13 +286,13 @@ static int32u Ac4_ch_mode_2_nonstd_Values[16]=
     L | R | C | Ls | Rs | Lb | Rb | LFE,        //7.1 3/4/0
     L | R | C | Ls | Rs | Lw | Rw,              //7.0 5/2/0
     L | R | C | Ls | Rs | Lw | Rw | LFE,        //7.1 5/2/0
-    L | R | C | Ls | Rs | Tl | Tr,              //7.0 3/2/2
-    L | R | C | Ls | Rs | Tl | Tr | LFE,        //7.1 3/2/2
-    L | R | C | Ls | Rs | Lb | Rb | Tfl | Tfr | Tbl | Tbr,                      //7.0.4
-    L | R | C | Ls | Rs | Lb | Rb | Tfl | Tfr | Tbl | Tbr | LFE,                //7.1.4
-    L | R | C | Ls | Rs | Lb | Rb | Lw | Rw | Tfl | Tfr | Tbl | Tbr,            //9.0.4
-    L | R | C | Ls | Rs | Lb | Rb | Lw | Rw | Tfl | Tfr | Tbl | Tbr | LFE,      //9.1.4
-    (int32u)-1, //22.2
+    L | R | C | Ls | Rs | Tfl | Tfr,            //7.0 3/2/2
+    L | R | C | Ls | Rs | Tfl | Tfr | LFE,      //7.1 3/2/2
+    L | R | C | Ls | Rs | Lscr | Rscr | Tfl | Tfr | Tbl | Tbr,                  //7.0.4
+    L | R | C | Ls | Rs | Lscr | Rscr | Tfl | Tfr | Tbl | Tbr | LFE,            //7.1.4
+    L | R | C | Ls | Rs | Lb | Rb | Lscr | Rscr | Tfl | Tfr | Tbl | Tbr,        //9.0.4
+    L | R | C | Ls | Rs | Lb | Rb | Lscr | Rscr | Tfl | Tfr | Tbl | Tbr | LFE,  //9.1.4
+    L | R | C | Ls | Rs | Lb | Rb | Lw | Rw | Bc | Lscr | Rscr | Tfl | Tfr | Tbl | Tbr | Tsl | Tsr | Tc | Bfl | Bfr | Bfc | LFE | LFE2,  //22.2
 };
 static int32u Ac4_ch_mode_2_nonstd(int8u ch_mode, bool b_4_back_channels_present=false, bool b_centre_present=false, int8u top_channels_present=0)
 {
@@ -567,7 +584,7 @@ static inline int8u objs_to_n_objects(int8u n_objects_code, bool b_lfe)
 }
 
 //---------------------------------------------------------------------------
-static const char* AC4_nonstd_bed_channel_assignment_mask_ChannelLayout_List[17] =
+static const char* AC4_nonstd_bed_channel_assignment_mask_ChannelLayout_List[17+9] =
 {
     "L",
     "R",
@@ -586,6 +603,16 @@ static const char* AC4_nonstd_bed_channel_assignment_mask_ChannelLayout_List[17]
     "Lw",
     "Rw",
     "LFE2",
+    // Not in nonstd_bed_channel_assignment
+    "Bc",
+    "Lscr",
+    "Rscr",
+    "Tsl",
+    "Tsr",
+    "Tc",
+    "Bfl",
+    "Bfr",
+    "Bfc",
 };
 Ztring AC4_nonstd_bed_channel_assignment_mask_ChannelLayout(int32u nonstd_bed_channel_assignment_mask)
 {
@@ -594,7 +621,7 @@ Ztring AC4_nonstd_bed_channel_assignment_mask_ChannelLayout(int32u nonstd_bed_ch
     
     Ztring ToReturn;
 
-    for (int8u i=0; i<17; i++)
+    for (int8u i=0; i<17+9; i++)
     {
         if (nonstd_bed_channel_assignment_mask&(1<<i))
         {
@@ -770,7 +797,11 @@ void File_Ac4::Streams_Fill()
         string ChannelMode;
 
         //Summary pres_ch_mode
-        if (Presentation_Current.pres_ch_mode!=(int8u)-1)
+        if (Presentation_Current.pres_ch_mode==1 && Presentation_Current.pres_immersive_stereo!=(int8u)-1)
+        {
+            ChannelMode="Immersive Stereo";
+        }
+        else if (Presentation_Current.pres_ch_mode!=(int8u)-1)
         {
             ChannelMode=Value(Ac4_ch_mode_String, Presentation_Current.pres_ch_mode);
             if (Presentation_Current.pres_ch_mode>=11 && Presentation_Current.pres_ch_mode<=14)
@@ -793,6 +824,7 @@ void File_Ac4::Streams_Fill()
 
         //Summary presentation_config
         string presentation_config_String;
+        bool IsDolbyAtmos=false;
         for (size_t g=0; g<Presentation_Current.substream_group_info_specifiers.size(); g++)
         {
             const group& Group=Groups[Presentation_Current.substream_group_info_specifiers[g]];
@@ -818,6 +850,19 @@ void File_Ac4::Streams_Fill()
                 presentation_config_String+="Main";
             else
                 presentation_config_String+="?";
+
+            if (Presentation_Current.presentation_version>=2)
+            {
+                for (size_t s=0; s<Group.Substreams.size(); s++)
+                {
+                    const group_substream& Substream=Group.Substreams[s];
+                    if (Substream.immersive_stereo==1)
+                    {
+                        IsDolbyAtmos=true;
+                        break;
+                    }
+                }
+            }
         }
         //if (presentation_config_String!=(Presentation_Current.presentation_config==(int8u)-1?"Main":Value(Ac4_presentation_config, Presentation_Current.presentation_config)))
         //    Fill(Stream_Audio, 0, "NOK", "presentation_config", -1, true, true);//TODO remove
@@ -853,6 +898,8 @@ void File_Ac4::Streams_Fill()
             Fill(Stream_Audio, 0, (P+" PresentationConfig_ContentClassifier").c_str(), presentation_config_String); //TODO
             Fill_SetOptions(Stream_Audio, 0, (P+" PresentationConfig_ContentClassifier").c_str(), "N NTY");
         }
+        if (IsDolbyAtmos)
+            Fill(Stream_Audio, 0, (P+" DolbyAtmos").c_str(), "Yes");
         if (Presentation_Current.LoudnessInfo.dialnorm_bits!=(int8u)-1)
             Fill(Stream_Audio, 0, (P+" DialogueNormalization").c_str(), -0.25*Presentation_Current.LoudnessInfo.dialnorm_bits, 2);
         if (!Presentation_Current.Language.empty())
@@ -866,7 +913,7 @@ void File_Ac4::Streams_Fill()
             Fill(Stream_Audio, 0, (P+" MultipleStream").c_str(), Presentation_Current.b_multi_pid_PresentAndValue?"Yes":"No");
         {
             const loudness_info& L=Presentation_Current.LoudnessInfo;
-            if (L.loudspchgat!=(int16u)-1 || L.loudrelgat!=(int16u)-1 || (L.loud_prac_type!=(int8u)-1 && L.loud_prac_type) || L.lra!=(int16u)-1)
+            if (L.loudspchgat!=(int16u)-1 || L.loudrelgat!=(int16u)-1 || (L.loud_prac_type!=(int8u)-1 && L.loud_prac_type) || L.max_truepk!=(int16u)-1|| L.lra!=(int16u)-1)
             {
                 Fill(Stream_Audio, 0, (P+" Loudness").c_str(), "Yes");
                 if (L.loudspchgat!=(int16u)-1)
@@ -887,6 +934,8 @@ void File_Ac4::Streams_Fill()
                         DialogueCorrected+=" ("+Value(Ac4_loud_dialgate_prac_type, L.loud_dialgate_prac_type)+')';
                     Fill(Stream_Audio, 0, (P+" Loudness DialogueCorrected").c_str(), DialogueCorrected);
                 }
+                if (L.max_truepk!=(int16u)-1)
+                    Fill(Stream_Audio, 0, (P+" Loudness MawTruePeak").c_str(), Ztring::ToZtring((L.max_truepk-1024)/10.0, 1)+__T(" dBTP"));
                 if (L.max_loudmntry!=(int16u)-1)
                     Fill(Stream_Audio, 0, (P+" Loudness MaximumMomentaryLoudness").c_str(), Ztring::ToZtring((L.max_loudmntry-1024)/10.0, 1)+__T(" LUFS"));
                 if (L.lra!=(int16u)-1)
@@ -1027,6 +1076,15 @@ void File_Ac4::Streams_Fill()
             Fill_SetOptions(Stream_Audio, 0, (G+" Language/String").c_str(), "Y NTN");
         }
         Fill(Stream_Audio, 0, (G+" ChannelCoded").c_str(), Group.b_channel_coded?"Yes":"No");
+        for (size_t s=0; s<Group.Substreams.size(); s++)
+        {
+            const group_substream& Substream=Group.Substreams[s];
+            if (Substream.immersive_stereo!=(int8u)-1)
+            {
+                Fill(Stream_Audio, 0, (G+" ImmersiveStereo").c_str(), Value(Ac4_immersive_stereo_String, Substream.immersive_stereo));
+                break;
+            }
+        }
         Fill(Stream_Audio, 0, (G+" NumberOfSubstreams").c_str(), Group.Substreams.size());
         int8u n_objects=0;
         int8u num_channels_in_bed_Total=0;
@@ -1080,19 +1138,21 @@ void File_Ac4::Streams_Fill()
     }
     for (map<int8u, audio_substream>::iterator Substream_Info=AudioSubstreams.begin(); Substream_Info!=AudioSubstreams.end(); Substream_Info++)
     {
-        string ChannelMode;
+        string ChannelMode, ImmersiveStereo;
         for (size_t g=0; g<Groups.size(); g++)
         {
             const group& Group=Groups[g];
             for (size_t s=0; s<Group.Substreams.size(); s++)
             {
                 const group_substream& GroupInfo=Group.Substreams[s];
-                string ChannelMode2;
+                string ChannelMode2, ImmersiveStereo2;
                 if (GroupInfo.substream_index==Substream_Info->first)
                 {
                     if (GroupInfo.ch_mode!=(int8u)-1)
                     {
                         ChannelMode2=Value(Ac4_ch_mode_String, GroupInfo.ch_mode);
+                        if (GroupInfo.immersive_stereo!=(int8u)-1)
+                            ImmersiveStereo2=Value(Ac4_immersive_stereo_String, GroupInfo.immersive_stereo);
                         if (GroupInfo.ch_mode>=11 && GroupInfo.ch_mode<=14)
                         {
                             if (!GroupInfo.b_4_back_channels_present)
@@ -1121,7 +1181,12 @@ void File_Ac4::Streams_Fill()
                     {
                         int8u n=objs_to_n_objects(GroupInfo.n_objects_code, GroupInfo.b_lfe);
                         if (n!=(int8u)-1)
-                            ChannelMode2=Ztring::ToZtring(n).To_UTF8()+" objects";
+                        {
+                            ChannelMode2=Ztring::ToZtring(n-(GroupInfo.b_lfe?1:0)).To_UTF8();
+                            if (GroupInfo.b_lfe)
+                                ChannelMode2+=".1";
+                            ChannelMode2+=" objects";
+                        }
                         else
                             ChannelMode2="n_objects_code="+Ztring::ToZtring(GroupInfo.n_objects_code).To_UTF8()+" b_lfe="+(GroupInfo.b_lfe?'1':'0');
                     }
@@ -1130,6 +1195,12 @@ void File_Ac4::Streams_Fill()
                         if (!ChannelMode.empty())
                             ChannelMode+=" + ";
                         ChannelMode+=ChannelMode2;
+                    }
+                    if (!ImmersiveStereo2.empty() && ImmersiveStereo2!=ImmersiveStereo)
+                    {
+                        if (!ImmersiveStereo.empty())
+                            ImmersiveStereo+=" + ";
+                        ImmersiveStereo+=ImmersiveStereo2;
                     }
                 }
             }
@@ -1156,6 +1227,11 @@ void File_Ac4::Streams_Fill()
         {
             Fill(Stream_Audio, 0, (S+" ChannelMode").c_str(), ChannelMode);
             //Fill_SetOptions(Stream_Audio, 0, (S+" ChannelMode").c_str(), "N NIY");
+        }
+        if (!ImmersiveStereo.empty())
+        {
+            Fill(Stream_Audio, 0, (S+" ImmersiveStereo").c_str(), ImmersiveStereo);
+            //Fill_SetOptions(Stream_Audio, 0, (S+" ImmersiveStereo").c_str(), "N NTY");
         }
 
         //Info from group
@@ -1645,6 +1721,7 @@ void File_Ac4::ac4_toc()
         presentation& P=Presentations[p];
         P.pres_ch_mode=(int8u)-1;
         P.pres_ch_mode_core=(int8u)-1;
+        P.pres_immersive_stereo=(int8u)-1;
         P.n_substreams_in_presentation=0;
         P.b_pres_4_back_channels_present=false;
         P.b_pres_centre_present=false;
@@ -1681,6 +1758,10 @@ void File_Ac4::ac4_toc()
                         else
                             b_obj_or_ajoc_adaptive=1;
                     }
+
+                    // immersive_stereo
+                    if (S.immersive_stereo!=(int8u)-1 && P.pres_immersive_stereo==(int8u)-1) // Prioritizing first presentation
+                        P.pres_immersive_stereo=S.immersive_stereo;
 
                     if (S.ch_mode>=11 && S.ch_mode<=14)
                     {
@@ -2084,7 +2165,7 @@ void File_Ac4::ac4_substream_group_info(presentation* P)
             else
                 S.sus_ver=true;
 
-            ac4_substream_info_chan(S, b_substreams_present);
+            ac4_substream_info_chan(S, Pos, b_substreams_present);
             if (G.b_hsf_ext)
                 ac4_hsf_ext_substream_info(S, b_substreams_present);
         }
@@ -2136,18 +2217,42 @@ void File_Ac4::ac4_hsf_ext_substream_info(group_substream& G, bool b_substreams_
 }
 
 //---------------------------------------------------------------------------
-void File_Ac4::ac4_substream_info_chan(group_substream& G, bool b_substreams_present)
+void File_Ac4::ac4_substream_info_chan(group_substream& G, size_t Pos, bool b_substreams_present)
 {
     G.substream_type=Type_Ac4_Substream;
 
     Element_Begin1(                                             "ac4_substream_info_chan");
-    Get_V4(Ac4_channel_mode2, G.ch_mode,                          "channel_mode");
+    Get_V4(Ac4_channel_mode2, G.ch_mode,                        "channel_mode");
     if (G.ch_mode==16)
     {
         int32u channel_mode32;
         Get_V4(2, channel_mode32,                               "channel_mode");
         G.ch_mode+=(int8u)channel_mode32;
     }
+
+    //Testing immersive stereo
+    for (size_t p=0; p<Presentations.size(); p++)
+    {
+        const presentation& Presentation_Current=Presentations[p];
+        for (size_t s=0; s<Presentation_Current.substream_group_info_specifiers.size(); s++)
+        {
+            const size_t& Specifier=Presentation_Current.substream_group_info_specifiers[s];
+            if (Specifier==Pos)
+            {
+                if (Presentation_Current.presentation_version==2)
+                {
+                    if (G.ch_mode>=5 && G.ch_mode<=10)
+                    {
+                        //Difference with other versions
+                        G.immersive_stereo=G.ch_mode-5;
+                        G.ch_mode=1;
+                    }
+                }
+            }
+        }
+    }
+
+
     switch (G.ch_mode)
     {
         case 11:
@@ -2162,6 +2267,8 @@ void File_Ac4::ac4_substream_info_chan(group_substream& G, bool b_substreams_pre
     Param_Info1(Value(Ac4_ch_mode_String, G.ch_mode));
     if (G.ch_mode_core!=(int8u)-1)
         Param_Info1(Value(Ac4_ch_mode_String, G.ch_mode_core));
+    if (G.immersive_stereo!=(int8u)-1)
+        Param_Info1(Value(Ac4_immersive_stereo_String, G.immersive_stereo));
     if (G.ch_mode>=11 && G.ch_mode<=14)
     {
         Get_SB (   G.b_4_back_channels_present,                 "b_4_back_channels_present");
@@ -2303,7 +2410,7 @@ void File_Ac4::ac4_substream_info_obj(group_substream& G, bool b_substreams_pres
                         G.nonstd_bed_channel_assignment_mask=AC4_bed_channel_assignment_mask_2_nonstd(std_bed_channel_assignment_mask);
                     TESTELSE_SB_END();
                 TESTELSE_SB_END();
-                if (G.nonstd_bed_channel_assignment_mask!=(int8u)-1)
+                if (G.nonstd_bed_channel_assignment_mask!=(int32u)-1)
                     G.b_lfe=G.nonstd_bed_channel_assignment_mask&(1<<3);
             TEST_SB_END();
         TESTELSE_SB_ELSE(                                       "b_bed_objects");
@@ -3883,7 +3990,7 @@ void File_Ac4::further_loudness_info(loudness_info& L, bool sus_ver, bool b_pres
         Skip_S2(11,                                             "truepk");
     TEST_SB_END();
     TEST_SB_SKIP(                                               "b_max_truepk");
-        Skip_S2(11,                                             "max_truepk");
+        Get_S2 (11, L.max_truepk,                               "max_truepk");
     TEST_SB_END();
     if (b_presentation_ldn || !sus_ver)
     {
