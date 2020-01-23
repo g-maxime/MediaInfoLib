@@ -508,10 +508,12 @@ private :
         int8u presentation_version;
         bool b_pres_ndot;
         bool b_alternative;
+        bool dolby_atmos_indicator;
         int8u substream_index;
         int8u presentation_config;
         int8u n_substream_groups;
         int8u b_multi_pid_PresentAndValue;
+        int8u frame_rate_fraction_minus1;
         loudness_info LoudnessInfo;
         drc_info DrcInfo;
         dmx Dmx;
@@ -527,7 +529,9 @@ private :
         string Language;
 
         presentation() :
-            presentation_config((int8u)-1)
+            presentation_config((int8u)-1),
+            frame_rate_fraction_minus1(0),
+            dolby_atmos_indicator(false)
         {}
     };
     vector<presentation> Presentations;
@@ -584,12 +588,66 @@ private :
     vector<group> Groups;
 
     //Audio substreams
+    struct buffer
+    {
+        int8u* Data;
+        size_t Offset;
+        size_t Size;
+
+        void Create(size_t NewSize)
+        {
+            delete[] Data; 
+            Size=NewSize;
+            Data=new int8u[Size];
+            Offset=0;
+        }
+
+        void Clear()
+        {
+            delete[] Data;
+            Data=NULL;
+        }
+
+        void Append(const uint8_t* BufferToAdd, size_t SizeToAdd)
+        {
+            if (!Data)
+                Create(SizeToAdd);
+            size_t NewOffset=Offset+SizeToAdd;
+            if (NewOffset>Size)
+            {
+                uint8_t* Data_ToDelete=Data;
+                Size=NewOffset;
+                Data=new int8u[Size];
+                memcpy(Data, Data_ToDelete, Offset);
+                delete[] Data_ToDelete;
+            }
+            memcpy(Data+Offset, BufferToAdd, SizeToAdd);
+            Offset=NewOffset;
+        }
+
+        buffer() :
+            Data(NULL)
+            {}
+
+        ~buffer()
+        {
+            delete[] Data;
+        }
+    };
     struct audio_substream
     {
         loudness_info LoudnessInfo;
         drc_info DrcInfo;
         de_info DeInfo;
         preprocessing Preprocessing;
+        buffer Buffer;
+        int8u Buffer_Index;
+        bool b_iframe;
+
+        audio_substream(bool b_iframe_) :
+            Buffer_Index(0),
+            b_iframe(b_iframe_)
+        {}
     };
     std::map<int8u, audio_substream> AudioSubstreams;
 
@@ -628,7 +686,7 @@ private :
     void bed_dyn_obj_assignment(group_substream& G);
     void content_type(content_info& ContentInfo);
     void frame_rate_multiply_info();
-    void frame_rate_fractions_info();
+    void frame_rate_fractions_info(presentation& P);
     void emdf_info(presentation_substream& P);
     void emdf_payloads_substream_info(presentation_substream& P);
     void emdf_protection();
@@ -639,7 +697,7 @@ private :
     void ac4_substream(size_t substream_index);
     void ac4_presentation_substream(size_t substream_index, size_t Substream_Index);
 
-    void metadata(size_t Substream_Index);
+    void metadata(audio_substream& AudioSubstream, size_t Substream_Index);
     void basic_metadata(loudness_info& LoudnessInfo, preprocessing& Preprocessing, int8u ch_mode, bool sus_ver);
     void extended_metadata(bool b_associated, bool b_dialog, int8u ch_mode, bool sus_ver);
     void dialog_enhancement(de_info& Info, int8u ch_mode, bool b_iframe);

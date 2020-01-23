@@ -824,7 +824,7 @@ void File_Ac4::Streams_Fill()
 
         //Summary presentation_config
         string presentation_config_String;
-        bool IsDolbyAtmos=false;
+        bool IsDolbyAtmos=Presentation_Current.dolby_atmos_indicator;
         for (size_t g=0; g<Presentation_Current.substream_group_info_specifiers.size(); g++)
         {
             const group& Group=Groups[Presentation_Current.substream_group_info_specifiers[g]];
@@ -851,7 +851,7 @@ void File_Ac4::Streams_Fill()
             else
                 presentation_config_String+="?";
 
-            if (Presentation_Current.presentation_version>=2)
+            if (!IsDolbyAtmos && Presentation_Current.presentation_version>=2)
             {
                 for (size_t s=0; s<Group.Substreams.size(); s++)
                 {
@@ -1491,9 +1491,6 @@ void File_Ac4::Data_Parse()
         Element_Size+=2;
         Skip_B2(                                                "crc_word");
     }
-
-    if (!Trusted_Get() && Retrieve_Const(Stream_Audio, 0, "NOK").empty())
-        Fill(Stream_Audio, 0, "NOK", "parsing", -1, true, true);//TODO remove
 }
 
 //---------------------------------------------------------------------------
@@ -1514,6 +1511,9 @@ void File_Ac4::raw_ac4_frame()
             Finish();
         }
     FILLING_END();
+
+    if (!Trusted_Get() && Retrieve_Const(Stream_Audio, 0, "NOK").empty())
+        Fill(Stream_Audio, 0, "NOK", "parsing", -1, true, true);//TODO remove
 }
 
 //---------------------------------------------------------------------------
@@ -1553,20 +1553,23 @@ void File_Ac4::raw_ac4_frame_substreams()
                     Skip_XX(Element_Size-Element_Offset,        "?");
                     return;
                 }
-                Element_Offset=Substreams_StartOffset;
-                for (size_t i=0; i<substream_index; i++)
-                    Element_Offset+=Substream_Size[i];
-                int64u Element_Size_Save=Element_Size;
-                Element_Size=Element_Offset+Substream_Size[substream_index];
-
-                ac4_presentation_substream(substream_index, i);
-
-                if (Element_Offset<Element_Size)
+                if (Substream_Size[substream_index])
                 {
-                    Fill(Stream_Audio, 0, "NOK", "presentation_substream too much", -1, true, true);//TODO remove
-                    Skip_XX(Element_Size-Element_Offset,                "?");
+                    Element_Offset=Substreams_StartOffset;
+                    for (size_t i=0; i<substream_index; i++)
+                        Element_Offset+=Substream_Size[i];
+                    int64u Element_Size_Save=Element_Size;
+                    Element_Size=Element_Offset+Substream_Size[substream_index];
+
+                    ac4_presentation_substream(substream_index, i);
+
+                    if (Element_Offset<Element_Size)
+                    {
+                        Fill(Stream_Audio, 0, "NOK", "presentation_substream too much", -1, true, true);//TODO remove
+                        Skip_XX(Element_Size-Element_Offset,                "?");
+                    }
+                    Element_Size=Element_Size_Save;
                 }
-                Element_Size=Element_Size_Save;
             }
         }
 
@@ -1641,22 +1644,45 @@ void File_Ac4::ac4_toc()
     Get_SB (   fs_index,                                        "fs_index"); Param_Info1(Ztring::ToZtring(Ac4_fs_index[fs_index])+__T(" Hz"));
     Get_S1 (4, frame_rate_index,                                "frame_rate_index"); Param_Info2(Ac4_frame_rate[fs_index][frame_rate_index], " fps");
     Get_SB (   b_iframe_global,                                 "b_iframe_global");
-    if (!b_iframe_global)
+    bool NoSkip=false;
+    if (b_iframe_global)
     {
-        //We parse only Iframes
+        Element_Level-=2;
+        Element_Info1("I");
+        Element_Level+=2;
+        IFrames.push_back(Frame_Count);
+        if (AudioSubstreams.empty())
+            NoSkip=true;
+    }
+    else
+    {
+        //We parse only Iframes, but also the frames associated to this I-frame
+        if (!AudioSubstreams.empty())
+            for (map<int8u, audio_substream>::iterator Substream_Info=AudioSubstreams.begin(); Substream_Info!=AudioSubstreams.end(); Substream_Info++)
+                if (Substream_Info->second.Buffer_Index)
+                    NoSkip=true;
+    }
+    if (!NoSkip)
+    {
         Element_End0();
         BS_End();
         Element_Offset=Element_Size;
         return;
     }
-
-    Element_Level-=2;
-    Element_Info1("I");
-    Element_Level+=2;
-    IFrames.push_back(Frame_Count); //TODO
     Presentations.clear();
     Groups.clear();
-    AudioSubstreams.clear();
+    if (b_iframe_global)
+        AudioSubstreams.clear();
+    else
+    {
+        for (map<int8u, audio_substream>::iterator AudioSubstream=AudioSubstreams.begin(); AudioSubstream!=AudioSubstreams.end();)
+        {
+            if (!AudioSubstream->second.Buffer_Index)
+                AudioSubstreams.erase(AudioSubstream++);
+            else
+                ++AudioSubstream;
+        }
+    }
     max_group_index=0;
 
     TESTELSE_SB_SKIP(                                           "b_single_presentation");
@@ -1939,7 +1965,7 @@ void File_Ac4::ac4_presentation_v1_info()
             Skip_V4(2,                                          "presentation_id");
         TEST_SB_END();
         frame_rate_multiply_info();
-        frame_rate_fractions_info();
+        frame_rate_fractions_info(P);
         P.Substreams.resize(P.Substreams.size()+1);
         emdf_info(P.Substreams.back());
         TEST_SB_SKIP(                                           "b_presentation_filter");
@@ -2300,8 +2326,13 @@ void File_Ac4::ac4_substream_info_chan(group_substream& G, size_t Pos, bool b_su
     TEST_SB_END();
     if (G.ch_mode>=7 && G.ch_mode<=10)
         Skip_SB(                                                "add_ch_base");
+    vector<bool> b_iframes;
     for (int8u Pos=0; Pos<frame_rate_factor; Pos++)
-        Skip_SB(                                                "b_audio_ndot");
+    {
+        bool b_iframe;
+        Get_SB (b_iframe,                                       "b_audio_ndot");
+        b_iframes.push_back(b_iframe);
+    }
     if (b_substreams_present)
     {
         int8u substream_index;
@@ -2315,7 +2346,7 @@ void File_Ac4::ac4_substream_info_chan(group_substream& G, size_t Pos, bool b_su
         }
 
         G.substream_index=substream_index;
-        G.b_iframe=true; //TODO if b_global_iframe is 0
+        G.b_iframe=b_iframes[0]; //TODO frame_rate_factor
 
         Substream_Type[substream_index]=Type_Ac4_Substream;
     }
@@ -2360,8 +2391,13 @@ void File_Ac4::ac4_substream_info_ajoc(group_substream& G, bool b_substreams_pre
     TEST_SB_SKIP(                                               "b_bitrate_info");
         Skip_V4(3, 5, 1,                                        "bitrate_indicator");
     TEST_SB_END();
+    vector<bool> b_iframes;
     for (int8u Pos=0; Pos<frame_rate_factor; Pos++)
-        Skip_SB(                                                "b_audio_ndot");
+    {
+        bool b_iframe;
+        Get_SB (b_iframe,                                       "b_audio_ndot");
+        b_iframes.push_back(b_iframe);
+    }
     if (b_substreams_present)
     {
         Get_S1(2, substream_index,                              "substream_index");
@@ -2374,6 +2410,7 @@ void File_Ac4::ac4_substream_info_ajoc(group_substream& G, bool b_substreams_pre
         }
 
         G.substream_index=substream_index;
+        G.b_iframe=b_iframes[0]; //TODO frame_rate_factor
 
         Substream_Type[substream_index]=Type_Ac4_Substream;
     }
@@ -2435,8 +2472,13 @@ void File_Ac4::ac4_substream_info_obj(group_substream& G, bool b_substreams_pres
     TEST_SB_SKIP(                                               "b_bitrate_info");
         Skip_V4(3, 5, 1,                                        "bitrate_indicator");
     TEST_SB_END();
+    vector<bool> b_iframes;
     for (int8u Pos=0; Pos<frame_rate_factor; Pos++)
-        Skip_SB(                                                "b_audio_ndot");
+    {
+        bool b_iframe;
+        Get_SB (b_iframe,                                       "b_audio_ndot");
+        b_iframes.push_back(b_iframe);
+    }
     if (b_substreams_present)
     {
         int8u substream_index;
@@ -2450,7 +2492,8 @@ void File_Ac4::ac4_substream_info_obj(group_substream& G, bool b_substreams_pres
         }
 
         G.substream_index=substream_index;
-    }
+        G.b_iframe=b_iframes[0]; //TODO frame_rate_factor
+   }
     Element_End0();
 }
 
@@ -2610,9 +2653,8 @@ void File_Ac4::frame_rate_multiply_info()
 }
 
 //---------------------------------------------------------------------------
-void File_Ac4::frame_rate_fractions_info()
+void File_Ac4::frame_rate_fractions_info(presentation& P)
 {
-    frame_rate_fraction=1;
     Element_Begin1(                                             "frame_rate_fractions_info");
     switch(frame_rate_index)
     {
@@ -2623,22 +2665,28 @@ void File_Ac4::frame_rate_fractions_info()
         case 9:
             if (frame_rate_factor==1)
             {
-                TEST_SB_SKIP(                                   "b_frame_rate_fraction");
-                    frame_rate_fraction=2;
-                TEST_SB_END();
+                bool b_frame_rate_fraction;
+                Get_SB (b_frame_rate_fraction,                  "b_frame_rate_fraction");
+                if (b_frame_rate_fraction)
+                    P.frame_rate_fraction_minus1++;
             }
-        break;
+            break;
         case 10:
         case 11:
         case 12:
-            TEST_SB_SKIP(                                       "b_frame_rate_fraction");
-                TESTELSE_SB_SKIP(                               "b_frame_rate_fraction_is_4");
-                    frame_rate_fraction=4;
-                TESTELSE_SB_ELSE(                               "b_frame_rate_fraction_is_4");
-                    frame_rate_fraction=2;
-                TESTELSE_SB_END();
-            TEST_SB_END();
-        break;
+            {
+                bool b_frame_rate_fraction;
+                Get_SB (b_frame_rate_fraction,                  "b_frame_rate_fraction");
+                if (b_frame_rate_fraction)
+                {
+                    P.frame_rate_fraction_minus1++;
+                    bool b_frame_rate_fraction_is_4;
+                    Get_SB(b_frame_rate_fraction_is_4,          "b_frame_rate_fraction_is_4");
+                    if (b_frame_rate_fraction_is_4)
+                        P.frame_rate_fraction_minus1+=2;
+                }
+            }
+            break;
         default:;
     }
     Element_End0();
@@ -2814,7 +2862,7 @@ void File_Ac4::oamd_common_data()
         }
         //TODO: bits_used=trim();
         //TODO: bits_used+=bed_render_info();
-        Skip_S8(add_data_bytes*8,                              "add_data");
+        Skip_S8(add_data_bytes*8,                               "add_data");
     TEST_SB_END();
     Element_End0();
 }
@@ -2822,19 +2870,8 @@ void File_Ac4::oamd_common_data()
 //---------------------------------------------------------------------------
 void File_Ac4::ac4_substream(size_t substream_index)
 {
-    audio_substream& AudioSubstream=AudioSubstreams[substream_index];
-        
     Element_Begin1("ac4_substream");
     Element_Info1(Ztring::ToZtring(substream_index));
-    BS_Begin();
-    size_t Pos_Before=Data_BS_Remain();
-    int32u audio_size;
-    Get_S4(15, audio_size,                                      "audio_size_value");
-    TEST_SB_SKIP(                                               "b_more_bits");
-        int32u audio_size32;
-        Get_V4(7, audio_size32,                                 "audio_size_value");
-        audio_size+=audio_size32<<15;
-    TEST_SB_END();
 
     //Looks for corresponding group info (we take the last one found)
     size_t Group_Pos=(size_t)-1;
@@ -2851,6 +2888,68 @@ void File_Ac4::ac4_substream(size_t substream_index)
     if (Group_Pos==(size_t)-1)
         return; //Problem
     group_substream& GroupInfo=Groups[Group_Pos].Substreams[SubStream_Pos]; //TODO should be const
+
+    std::map<int8u, audio_substream>::iterator AudioSubstream_It=AudioSubstreams.find(substream_index);
+    if (AudioSubstream_It==AudioSubstreams.end())
+        AudioSubstream_It=AudioSubstreams.insert(std::pair<int8u, audio_substream>((int8u)substream_index, audio_substream(GroupInfo.b_iframe))).first;
+    audio_substream& AudioSubstream=AudioSubstream_It->second;
+
+    //Looks for efficient high frame rate (data span over several audio frames)
+    for (int8u p=0; p<Presentations.size(); p++)
+    {
+        presentation& P=Presentations[p];
+        if (P.frame_rate_fraction_minus1)
+        {
+            int8u i;
+            for (i=0; i<P.substream_group_info_specifiers.size(); i++)
+            {
+                if (P.substream_group_info_specifiers[i]==Group_Pos)
+                {
+                    if (!AudioSubstream.Buffer.Data)
+                        AudioSubstream.Buffer.Create((size_t)Element_Size);//*(P.frame_rate_fraction_minus1+1)*2);
+                    AudioSubstream.Buffer.Append(Buffer+Buffer_Offset+(size_t)Element_Offset, (size_t)Element_Size-Element_Offset);
+                    if (AudioSubstream.Buffer_Index<P.frame_rate_fraction_minus1)
+                    {
+                        AudioSubstream.Buffer_Index++;
+                        Skip_XX(Element_Size-Element_Offset,    "Data (buffered)");
+                        Element_End0();
+                        return;
+                    }
+                    break;
+                }
+            }
+            if (i<P.substream_group_info_specifiers.size()) // If found
+                break;
+        }
+    }
+    AudioSubstream.Buffer_Index=0;
+
+    int64u Save_Element_Size;
+    if (AudioSubstream.Buffer.Data)
+    {
+        //Using AudioSubstream.Buffer as temporary save
+        int8u* Buffer_Temp=(int8u*)Buffer;
+        swap(Buffer_Temp, AudioSubstream.Buffer.Data);
+        Buffer=Buffer_Temp;
+        swap(Buffer_Offset, AudioSubstream.Buffer.Offset);
+        swap(Buffer_Size, AudioSubstream.Buffer.Size);
+
+        Save_Element_Size=Element_Size;
+        Element_Offset=0;
+        Element_Size=Buffer_Offset;
+        Buffer_Size=Buffer_Offset;
+        Buffer_Offset=0;
+    }
+
+    BS_Begin();
+    size_t Pos_Before=Data_BS_Remain();
+    int32u audio_size;
+    Get_S4(15, audio_size,                                      "audio_size_value");
+    TEST_SB_SKIP(                                               "b_more_bits");
+        int32u audio_size32;
+        Get_V4(7, audio_size32,                                 "audio_size_value");
+        audio_size+=audio_size32<<15;
+    TEST_SB_END();
 
     // Skip audio
     const char* audio_data_name;
@@ -2871,7 +2970,7 @@ void File_Ac4::ac4_substream(size_t substream_index)
             GroupInfo.ch_mode++; // ch_mode=4, 5.1
     }
     Skip_BS(audio_size*8,                                       audio_data_name);
-    metadata(substream_index);
+    metadata(AudioSubstream, substream_index);
     GroupInfo.ch_mode=ch_mode_Save;
 
     size_t Pos_After=Data_BS_Remain();
@@ -2889,6 +2988,18 @@ void File_Ac4::ac4_substream(size_t substream_index)
         Skip_BS(Bits, Align?"byte_align":"?");
     }
     BS_End();
+
+    if (AudioSubstream.Buffer.Data)
+    {
+        Element_Offset=Element_Size=Save_Element_Size;
+        int8u* Buffer_Temp=(int8u*)Buffer;
+        swap(Buffer_Temp, AudioSubstream.Buffer.Data);
+        Buffer=Buffer_Temp;
+        Buffer_Offset=AudioSubstream.Buffer.Offset;
+        Buffer_Size=AudioSubstream.Buffer.Size;
+        AudioSubstream.Buffer.Clear();
+    }
+
     Element_End0();
 }
 
@@ -2970,7 +3081,8 @@ void File_Ac4::ac4_presentation_substream(size_t substream_index, size_t Substre
         size_t byte_align=Data_BS_Remain()%8;
         if (byte_align)
             Skip_S1(byte_align,                                 "byte_align");
-        Skip_BS(add_data_bytes*8,                               "add_data");
+        Get_SB (P.dolby_atmos_indicator,                        "dolby_atmos_indicator");
+        Skip_BS(add_data_bytes*8-1,                             "add_data");
     TEST_SB_END();
 
     Get_S1 (7, L.dialnorm_bits,                                 "dialnorm_bits");
@@ -3043,7 +3155,7 @@ void File_Ac4::ac4_presentation_substream(size_t substream_index, size_t Substre
     Element_End0();
 }
 //---------------------------------------------------------------------------
-void File_Ac4::metadata(size_t substream_index)
+void File_Ac4::metadata(audio_substream& AudioSubstream, size_t Substream_Index)
 {
     //Looks for corresponding group info (we take the last one found)
     size_t Group_Pos=(size_t)-1;
@@ -3051,7 +3163,7 @@ void File_Ac4::metadata(size_t substream_index)
     for (size_t i=0; i <Groups.size(); i++)
     {
         for (size_t j=0; j<Groups[i].Substreams.size(); j++)
-            if (Groups[i].Substreams[j].substream_index==substream_index)
+            if (Groups[i].Substreams[j].substream_index==Substream_Index)
             {
                 Group_Pos=i;
                 SubStream_Pos=j;
@@ -3066,7 +3178,7 @@ void File_Ac4::metadata(size_t substream_index)
     bool b_dialog=ContentInfo.content_classifier==4; //TODO: from presentation_config if content_classifier not present
 
     Element_Begin1("metadata");
-    basic_metadata(AudioSubstreams[substream_index].LoudnessInfo, AudioSubstreams[substream_index].Preprocessing, GroupInfo.ch_mode, GroupInfo.sus_ver);
+    basic_metadata(AudioSubstream.LoudnessInfo, AudioSubstream.Preprocessing, GroupInfo.ch_mode, GroupInfo.sus_ver);
     extended_metadata(b_associated, b_dialog, GroupInfo.ch_mode, GroupInfo.sus_ver);
 
     // TODO:
@@ -3090,8 +3202,8 @@ void File_Ac4::metadata(size_t substream_index)
     {
     size_t Pos_Before = Data_BS_Remain();
     if (!GroupInfo.sus_ver)
-        drc_frame(AudioSubstreams[substream_index].DrcInfo, GroupInfo.b_iframe);
-    dialog_enhancement(AudioSubstreams[substream_index].DeInfo, GroupInfo.ch_mode, true /* TODO: b_iframe */);
+        drc_frame(AudioSubstream.DrcInfo, AudioSubstream.b_iframe);
+    dialog_enhancement(AudioSubstream.DeInfo, GroupInfo.ch_mode, AudioSubstream.b_iframe);
     size_t Pos_After=Data_BS_Remain();
     if (tools_metadata_size!=Pos_Before-Pos_After)
     {
@@ -3347,13 +3459,13 @@ void File_Ac4::extended_metadata(bool b_associated, bool b_dialog, int8u ch_mode
 //---------------------------------------------------------------------------
 void File_Ac4::dialog_enhancement(de_info& Info, int8u ch_mode, bool b_iframe)
 {
-    bool b_de_config_flag=b_iframe;
-
     Element_Begin1("dialog_enhancement");
     TEST_SB_GET (Info.b_de_data_present,                        "b_de_data_present");
+        bool b_de_config_flag;
         if (!b_iframe)
             Get_SB (b_de_config_flag,                           "b_de_config_flag");
-
+        else
+            b_de_config_flag=b_iframe;
         if (b_de_config_flag)
             dialog_enhancement_config(Info);
 
