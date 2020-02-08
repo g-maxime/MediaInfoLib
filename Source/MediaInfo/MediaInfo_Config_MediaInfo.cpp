@@ -1601,11 +1601,15 @@ void MediaInfo_Config_MediaInfo::File_ExpandSubs_Update(void** Source)
     //Sub-elements
     for (size_t StreamKind=Stream_General; StreamKind<Stream_Max; StreamKind++)
         for (size_t StreamPos=0; StreamPos<(*Stream_More)[StreamKind].size(); StreamPos++)
-            for (size_t Pos=0; Pos<(*Stream_More)[StreamKind][StreamPos].size(); Pos++)
-                if ((*Stream_More)[StreamKind][StreamPos][Pos].size()>Info_Name_Text)
+        {
+            const ZtringListList& Track=(*Stream_More)[StreamKind][StreamPos];
+            for (size_t Pos=0; Pos<Track.size(); Pos++)
+            {
+                const ZtringList& Field=Track[Pos];
+                if (Field.size()>Info_Name_Text)
                 {
                     // Text
-                    Ztring Name=(*Stream_More)[StreamKind][StreamPos][Pos][Info_Name];
+                    Ztring Name=Field[Info_Name];
                     size_t Spaces=0;
                     size_t i=0;
                     for (;;)
@@ -1619,11 +1623,21 @@ void MediaInfo_Config_MediaInfo::File_ExpandSubs_Update(void** Source)
                     //if (Spaces)
                     {
                         Name.erase(0, i);
-                        int64u Number=0;
-                        if (!Name.empty() && Name[Name.size()-1]>=__T('0') && Name[Name.size()-1]<=__T('9')) //TODO: 10+
+                        size_t Number=0;
+                        if (!Name.empty() && Pos+1<Track.size())
                         {
-                            Number=Ztring(Name.substr(Name.size()-1)).To_int64u()+1;
-                            Name.resize(Name.size()-1);
+                            const ZtringList& Field1=Track[Pos+1];
+                            const Ztring& Name1=Field1[Info_Name];
+                            size_t Name1_SpacePos=i+Name.size();
+                            if (Name1_SpacePos<Name1.size() && Name1[Name1_SpacePos]==__T(' ') && Name==Name1.substr(i, Name.size()))
+                            {
+                                size_t Text_End=Name.find_last_not_of(__T("0123456789"))+1;
+                                if (Text_End!=Name.size())
+                                {
+                                    Number=Ztring(Name.substr(Text_End)).To_int64u()+1;
+                                    Name.resize(Text_End);
+                                }
+                            }
                         }
                         Name=MediaInfoLib::Config.Language_Get(Name);
                         Name.insert(0, Spaces, __T(' '));
@@ -1632,6 +1646,8 @@ void MediaInfo_Config_MediaInfo::File_ExpandSubs_Update(void** Source)
                         (*Stream_More)[StreamKind][StreamPos][Pos][Info_Name_Text]=Name;
                     }
                 }
+            }
+        }
 }
 
 //---------------------------------------------------------------------------

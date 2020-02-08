@@ -506,6 +506,7 @@ private :
         vector<presentation_substream> Substreams;
 
         int8u presentation_version;
+        int32u presentation_id;
         bool b_pres_ndot;
         bool b_alternative;
         bool dolby_atmos_indicator;
@@ -530,6 +531,7 @@ private :
 
         presentation() :
             presentation_config((int8u)-1),
+            presentation_id((int32u)-1),
             frame_rate_fraction_minus1(0),
             dolby_atmos_indicator(false)
         {}
@@ -723,8 +725,10 @@ private :
     void further_loudness_info(loudness_info& LoudnessInfo, bool sus_ver, bool b_presentation_ldn);
 
     void dac4();
+    void alternative_info();
     void ac4_bitrate_dsi();
     void ac4_presentation_v1_dsi(presentation& P);
+    void ac4_substream_group_dsi(presentation& P);
 
     //Parsing
     void Get_V4 (int8u  Bits, int32u  &Info, const char* Name);

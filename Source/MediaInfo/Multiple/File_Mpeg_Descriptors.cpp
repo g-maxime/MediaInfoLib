@@ -3031,7 +3031,7 @@ void File_Mpeg_Descriptors::Descriptor_7F_19()
             Complete_Stream->Streams[elementary_PID]->StreamKind_FromDescriptor=Stream_Audio;
             for (map<int8u, Descriptor_7F_19_Info>::iterator Info=Infos.begin(); Info!=Infos.end(); Info++)
             {
-                string Prefix="Presentation"+Ztring::ToZtring(Info->first-Infos.begin()->first).To_UTF8();
+                string Prefix="Presentation"+Ztring::ToZtring(Info->first).To_UTF8();
                 Complete_Stream->Streams[elementary_PID]->Infos[Prefix]=Ztring::ToZtring(Info->first);
                 if (Info->second.audio_rendering_indication)
                     Complete_Stream->Streams[elementary_PID]->Infos[Prefix + " AudioRenderingIndication"]=Info->second.audio_rendering_indication<=audio_rendering_indication_Size?Ztring().From_UTF8(audio_rendering_indication[Info->second.audio_rendering_indication-1]):Ztring::ToZtring(Info->second.audio_rendering_indication);
