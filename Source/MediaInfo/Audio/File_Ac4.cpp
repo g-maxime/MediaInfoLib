@@ -2368,7 +2368,7 @@ void File_Ac4::ac4_substream_info_ajoc(group_substream& G, bool b_substreams_pre
     TESTELSE_SB_ELSE(                                           "b_static_dmx");
         Get_S1(4, G.n_fullband_dmx_signals,                     "n_fullband_dmx_signals_minus1");
         G.n_fullband_dmx_signals++;
-        bed_dyn_obj_assignment(G);
+        bed_dyn_obj_assignment(G, G.n_fullband_dmx_signals);
     TESTELSE_SB_END();
     TEST_SB_SKIP(                                               "b_oamd_common_data_present");
         oamd_common_data();
@@ -2382,7 +2382,7 @@ void File_Ac4::ac4_substream_info_ajoc(group_substream& G, bool b_substreams_pre
         n_fullband_upmix_signals32+=16;
         G.n_fullband_upmix_signals=(int8u)n_fullband_upmix_signals32;
     }
-    bed_dyn_obj_assignment(G);
+    bed_dyn_obj_assignment(G, G.n_fullband_upmix_signals);
     if (fs_index)
     {
         TEST_SB_SKIP(                                           "b_sf_multiplier");
@@ -2555,7 +2555,7 @@ void File_Ac4::presentation_config_ext_info(int8u presentation_config)
 }
 
 //---------------------------------------------------------------------------
-void File_Ac4::bed_dyn_obj_assignment(group_substream& G)
+void File_Ac4::bed_dyn_obj_assignment(group_substream& G, int8u n_signals)
 {
     Element_Begin1(                                             "bed_dyn_obj_assignment");
         TESTELSE_SB_SKIP(                                       "b_dyn_objects_only");
@@ -2578,10 +2578,10 @@ void File_Ac4::bed_dyn_obj_assignment(group_substream& G)
                         TESTELSE_SB_END();
                     TESTELSE_SB_ELSE(                           "b_chan_assign_mask");
                         int8u n_bed_signals;
-                        if (G.n_fullband_dmx_signals>1)
+                        if (n_signals>1)
                         {
-                            int8u bed_ch_bits=ceil(log2(G.n_fullband_dmx_signals));
-                            Get_S1(bed_ch_bits, n_bed_signals,  "n_bed_signals_minus1"); // TODO: suffcient ?
+                            int8u bed_ch_bits=ceil(log2(n_signals));
+                            Get_S1(bed_ch_bits, n_bed_signals,  "n_bed_signals_minus1");
                             n_bed_signals++;
                         }
                         else

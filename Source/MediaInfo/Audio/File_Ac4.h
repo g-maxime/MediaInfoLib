@@ -685,7 +685,7 @@ private :
     void ac4_substream_info_obj(group_substream& G, bool b_substreams_present);
     void ac4_presentation_substream_info(presentation& P);
     void presentation_config_ext_info(int8u presentation_config);
-    void bed_dyn_obj_assignment(group_substream& G);
+    void bed_dyn_obj_assignment(group_substream& G, int8u n_signals);
     void content_type(content_info& ContentInfo);
     void frame_rate_multiply_info();
     void frame_rate_fractions_info(presentation& P);
