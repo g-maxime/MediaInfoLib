@@ -2588,8 +2588,13 @@ void File_Ac4::bed_dyn_obj_assignment(group_substream& G, int8u n_signals)
                         {
                             n_bed_signals=1;
                         }
+                        G.nonstd_bed_channel_assignment_mask=0;
                         for (int8u Pos=0; Pos<n_bed_signals; Pos++)
-                            Skip_S1(4,                          "nonstd_bed_channel_assignment");
+                        {
+                            int8u nonstd_bed_channel_assignment;
+                            Get_S1(4, nonstd_bed_channel_assignment, "nonstd_bed_channel_assignment"); Param_Info1(AC4_nonstd_bed_channel_assignment_mask_ChannelLayout_List[nonstd_bed_channel_assignment]);
+                            G.nonstd_bed_channel_assignment_mask|=1<<nonstd_bed_channel_assignment;
+                        }
                     TESTELSE_SB_END();
                 TESTELSE_SB_END();
                 if (G.nonstd_bed_channel_assignment_mask!=(int32u)-1)
