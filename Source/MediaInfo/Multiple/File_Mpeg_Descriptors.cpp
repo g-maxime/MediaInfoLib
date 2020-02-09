@@ -2946,6 +2946,7 @@ void File_Mpeg_Descriptors::Descriptor_7F_15()
 //---------------------------------------------------------------------------
 struct Descriptor_7F_19_Info
 {
+    int8u preselection_id;
     int8u audio_rendering_indication;
     bool audio_description;
     bool spoken_subtitles;
@@ -2975,10 +2976,10 @@ void File_Mpeg_Descriptors::Descriptor_7F_19()
     for (int8u p=0; p<num_preselections; p++)
     {
         Element_Begin1("preselection");
+        Descriptor_7F_19_Info& Info=Infos[p];
         int8u preselection_id;
         bool language_code_present, text_label_present, multi_stream_info_present, future_extension;
-        Get_S1 (5, preselection_id,                             "preselection_id");
-        Descriptor_7F_19_Info& Info=Infos[preselection_id];
+        Get_S1 (5, Info.preselection_id,                        "preselection_id");
         Get_S1 (3, Info.audio_rendering_indication,             "audio_rendering_indication");
         Get_SB (Info.audio_description,                         "audio_description");
         Get_SB (Info.spoken_subtitles,                          "spoken_subtitles");
@@ -3032,6 +3033,7 @@ void File_Mpeg_Descriptors::Descriptor_7F_19()
             for (map<int8u, Descriptor_7F_19_Info>::iterator Info=Infos.begin(); Info!=Infos.end(); Info++)
             {
                 string Prefix="Presentation"+Ztring::ToZtring(Info->first).To_UTF8();
+                Complete_Stream->Streams[elementary_PID]->Infos[Prefix+" PrensentationID"].From_Number(Info->second.preselection_id);
                 Complete_Stream->Streams[elementary_PID]->Infos[Prefix]=Ztring::ToZtring(Info->first);
                 if (Info->second.audio_rendering_indication)
                     Complete_Stream->Streams[elementary_PID]->Infos[Prefix + " AudioRenderingIndication"]=Info->second.audio_rendering_indication<=audio_rendering_indication_Size?Ztring().From_UTF8(audio_rendering_indication[Info->second.audio_rendering_indication-1]):Ztring::ToZtring(Info->second.audio_rendering_indication);

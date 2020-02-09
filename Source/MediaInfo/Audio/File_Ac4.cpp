@@ -882,7 +882,8 @@ void File_Ac4::Streams_Fill()
         Fill(Stream_Audio, 0, P.c_str(), Summary);
         Fill(Stream_Audio, 0, (P+" Pos").c_str(), p);
         Fill_SetOptions(Stream_Audio, 0, (P+" Pos").c_str(), "N NIY");
-        Fill(Stream_Audio, 0, (P+" PresentationID").c_str(), p+1);
+        if (Presentation_Current.presentation_id!=(int32u)-1)
+            Fill(Stream_Audio, 0, (P+" PresentationID").c_str(), Presentation_Current.presentation_id);
         if (!ChannelMode.empty())
         {
             Fill(Stream_Audio, 0, (P+" ChannelMode").c_str(), ChannelMode);
@@ -2448,7 +2449,12 @@ void File_Ac4::ac4_substream_info_obj(group_substream& G, bool b_substreams_pres
                     TESTELSE_SB_END();
                 TESTELSE_SB_END();
                 if (G.nonstd_bed_channel_assignment_mask!=(int32u)-1)
-                    G.b_lfe=G.nonstd_bed_channel_assignment_mask&(1<<3);
+                {
+                    if (G.b_lfe)
+                        G.nonstd_bed_channel_assignment_mask|=LFE;
+                    else
+                        G.b_lfe=G.nonstd_bed_channel_assignment_mask&LFE;
+                }
             TEST_SB_END();
         TESTELSE_SB_ELSE(                                       "b_bed_objects");
             TESTELSE_SB_SKIP(                                   "b_isf");
@@ -2569,7 +2575,7 @@ void File_Ac4::bed_dyn_obj_assignment(group_substream& G)
                             int16u std_bed_channel_assignment_mask;
                             Get_S2 (10, std_bed_channel_assignment_mask, "std_bed_channel_assignment_mask");
                             G.nonstd_bed_channel_assignment_mask=AC4_bed_channel_assignment_mask_2_nonstd(std_bed_channel_assignment_mask);
-                        TEST_SB_END();
+                        TESTELSE_SB_END();
                     TESTELSE_SB_ELSE(                           "b_chan_assign_mask");
                         int8u n_bed_signals;
                         if (G.n_fullband_dmx_signals>1)
@@ -2586,8 +2592,13 @@ void File_Ac4::bed_dyn_obj_assignment(group_substream& G)
                             Skip_S1(4,                          "nonstd_bed_channel_assignment");
                     TESTELSE_SB_END();
                 TESTELSE_SB_END();
-                if (G.nonstd_bed_channel_assignment_mask!=(int8u)-1)
-                    G.b_lfe=G.nonstd_bed_channel_assignment_mask&(1<<3);
+                if (G.nonstd_bed_channel_assignment_mask!=(int32u)-1)
+                {
+                    if (G.b_lfe)
+                        G.nonstd_bed_channel_assignment_mask|=LFE;
+                    else
+                        G.b_lfe=G.nonstd_bed_channel_assignment_mask&LFE;
+                }
             TESTELSE_SB_END();
         TESTELSE_SB_END();
     Element_End0();
