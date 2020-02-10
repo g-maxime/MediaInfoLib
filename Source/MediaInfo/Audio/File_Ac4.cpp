@@ -14,7 +14,6 @@
 
 //---------------------------------------------------------------------------
 #include "MediaInfo/Setup.h"
-#include <cmath>
 //---------------------------------------------------------------------------
 
 //---------------------------------------------------------------------------
@@ -24,7 +23,8 @@
 //---------------------------------------------------------------------------
 #include "MediaInfo/Audio/File_Ac4.h"
 #include "MediaInfo/MediaInfo_Config_MediaInfo.h"
-#include "cfloat"
+#include <cfloat>
+#include <cmath>
 
 using namespace ZenLib;
 using namespace std;
@@ -726,6 +726,17 @@ string AC4_nonstd_2_desc(int32u nonstd_bed_channel_assignment_mask)
             ToReturn[2*AC4_nonstd_2_desc_Values[i]]++;
     return ToReturn;
 }
+
+//---------------------------------------------------------------------------
+const char* substream_type_Trace[] =
+{
+    "ac4_substream_data",
+    "ac4_substream",
+    "ac4_hsf_ext_substream",
+    "emdf_payloads_substream",
+    "ac4_presentation_substream",
+    "oamd_substream",
+};
 
 //---------------------------------------------------------------------------
 void File_Ac4::Streams_Fill()
@@ -1583,28 +1594,20 @@ void File_Ac4::raw_ac4_frame_substreams()
         int64u Element_Size_Save=Element_Size;
         Element_Size=Element_Offset+Substream_Size[substream_index];
 
-        switch(Substream_Type[substream_index])
+        std::map <int8u, substream_type_t>::iterator SubstreamTypeIt=Substream_Type.find(substream_index);
+        substream_type_t SubstreamTypeInfo=SubstreamTypeIt==Substream_Type.end()?Type_Unknown:SubstreamTypeIt->second;
+        if (SubstreamTypeInfo>=sizeof(substream_type_Trace)/sizeof(const char*))
+            SubstreamTypeInfo=Type_Unknown;
+        switch (SubstreamTypeInfo)
         {
             case Type_Ac4_Substream:
                 ac4_substream(substream_index);
                 break;
-            case Type_Ac4_Hsf_Ext_Substream:
-                Skip_XX(Substream_Size[substream_index],        "ac4_hsf_ext_substream");
-                Param_Info1(substream_index);
-                break;
-            case Type_Emdf_Payloads_Substream:
-                Skip_XX(Substream_Size[substream_index],        "emdf_payloads_substream");
-                Param_Info1(substream_index);
-                break;
             case Type_Ac4_Presentation_Substream:
-                  Element_Offset=Element_Size; // Previously parsed, skip
-                  break;
-            case Type_Oamd_Substream:
-                Skip_XX(Substream_Size[substream_index],        "oamd_substream");
-                Param_Info1(substream_index);
+                Element_Offset=Element_Size; // Previously parsed, skip
                 break;
             default:
-                Skip_XX(Substream_Size[substream_index],        "substream_data");
+                Skip_XX(Substream_Size[substream_index],        substream_type_Trace[SubstreamTypeInfo]);
                 Param_Info1(substream_index);
         }
 
@@ -1615,6 +1618,9 @@ void File_Ac4::raw_ac4_frame_substreams()
         }
         Element_Size=Element_Size_Save;
     }
+
+    if (Element_Offset<Element_Size)
+        Skip_XX(Element_Size-Element_Offset,                    "fill_area");
 
     Substream_Size.clear();
 }
@@ -2886,7 +2892,7 @@ void File_Ac4::oamd_common_data()
 //---------------------------------------------------------------------------
 void File_Ac4::ac4_substream(size_t substream_index)
 {
-    Element_Begin1("ac4_substream");
+    Element_Begin1(substream_type_Trace[Type_Ac4_Substream]);
     Element_Info1(Ztring::ToZtring(substream_index));
 
     //Looks for corresponding group info (we take the last one found)
@@ -2902,7 +2908,10 @@ void File_Ac4::ac4_substream(size_t substream_index)
             }
     }
     if (Group_Pos==(size_t)-1)
+    {
+        Element_End0();
         return; //Problem
+    }
     group_substream& GroupInfo=Groups[Group_Pos].Substreams[SubStream_Pos]; //TODO should be const
 
     std::map<int8u, audio_substream>::iterator AudioSubstream_It=AudioSubstreams.find(substream_index);
@@ -3036,7 +3045,7 @@ void File_Ac4::ac4_presentation_substream(size_t substream_index, size_t Substre
     else
         b_pres_has_lfe=false;
 
-    Element_Begin1("ac4_presentation_substream");
+    Element_Begin1(substream_type_Trace[Type_Ac4_Presentation_Substream]);
     Element_Info1(Ztring::ToZtring(substream_index));
     BS_Begin();
     if (P.b_alternative)

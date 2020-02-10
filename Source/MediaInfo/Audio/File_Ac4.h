@@ -487,11 +487,13 @@ public :
 private :
     enum substream_type_t
     {
+        Type_Unknown,
         Type_Ac4_Substream,
         Type_Ac4_Hsf_Ext_Substream,
         Type_Emdf_Payloads_Substream,
         Type_Ac4_Presentation_Substream,
-        Type_Oamd_Substream
+        Type_Oamd_Substream,
+        Type_Max,
     };
 
     //Presentations
