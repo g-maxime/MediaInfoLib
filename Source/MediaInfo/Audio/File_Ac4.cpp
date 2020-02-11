@@ -25,6 +25,7 @@
 #include "MediaInfo/MediaInfo_Config_MediaInfo.h"
 #include <cfloat>
 #include <cmath>
+#include <set>
 
 using namespace ZenLib;
 using namespace std;
@@ -1022,10 +1023,10 @@ void File_Ac4::Streams_Fill()
 
         string G=Ztring(__T("Group")+Ztring::ToZtring(g)).To_UTF8();
         const group& Group=Groups[g];
-        string PresentationConfig;
+        set<string> PresentationConfigs;
         //if (Group.ContentInfo.content_classifier!=(int8u)-1)
         //    Summary=Value(Ac4_content_classifier, Group.ContentInfo.content_classifier);
-        if (PresentationConfig.empty())
+        if (PresentationConfigs.empty())
         {
             //Check content_classifer from presentations
             for (size_t p=0; p<Presentations.size(); p++)
@@ -1047,37 +1048,28 @@ void File_Ac4::Streams_Fill()
                         }
                         else
                             Summary2="?";
-                        if (Summary2!=PresentationConfig)
-                        {
-                            if (!PresentationConfig.empty())
-                                PresentationConfig+=" / ";
-                            PresentationConfig+=Summary2;
-                        }
+                        PresentationConfigs.insert(Summary2);
                     }
                 }
             }
-            if (PresentationConfig.empty() && Group.ContentInfo.content_classifier!=(int8u)-1)
-                PresentationConfig=Value(Ac4_content_classifier, Group.ContentInfo.content_classifier);
+            if (PresentationConfigs.empty() && Group.ContentInfo.content_classifier!=(int8u)-1)
+                PresentationConfigs.insert(Value(Ac4_content_classifier, Group.ContentInfo.content_classifier));
 
-            if (PresentationConfig.empty())
-                PresentationConfig="?";
+            if (PresentationConfigs.empty())
+                PresentationConfigs.insert("?");
         }
-        string Summary=PresentationConfig;
-        if (!Group.ContentInfo.language_tag_bytes.empty())
+        string Summary;
+        for (set<string>::iterator PresentationConfig=PresentationConfigs.begin(); PresentationConfig!=PresentationConfigs.end(); ++PresentationConfig)
         {
-            if (!PresentationConfig.empty())
-                PresentationConfig+=' ';
-            PresentationConfig+='(';
-            PresentationConfig+=MediaInfoLib::Config.Iso639_Translate(Ztring().From_UTF8(Group.ContentInfo.language_tag_bytes)).To_UTF8();
-            PresentationConfig+=')';
+            if (!Summary.empty())
+                Summary+=" / ";
+            Summary+=*PresentationConfig;
         }
         Fill(Stream_Audio, 0, Ztring(__T("Group")+Ztring::ToZtring(g)).To_UTF8().c_str(), Summary);
         Fill(Stream_Audio, 0, (G+" Pos").c_str(), g);
         Fill_SetOptions(Stream_Audio, 0, (G+" Pos").c_str(), "N NIY");
-        Fill(Stream_Audio, 0, (G+" ID").c_str(), g+1);
-        Fill_SetOptions(Stream_Audio, 0, (G+" ID").c_str(), "N NIY");
-        Fill(Stream_Audio, 0, (G+" PresentationConfig").c_str(), PresentationConfig);
-        Fill_SetOptions(Stream_Audio, 0, (G+" PresentationConfig").c_str(), "N NIY");
+        //Fill(Stream_Audio, 0, (G+" ID").c_str(), g+1);
+        //Fill_SetOptions(Stream_Audio, 0, (G+" ID").c_str(), "N NIY");
         if (Group.ContentInfo.content_classifier!=(int8u)-1)
             Fill(Stream_Audio, 0, (G+" Classifier").c_str(), Value(Ac4_content_classifier, Group.ContentInfo.content_classifier));
         if (!Group.ContentInfo.language_tag_bytes.empty())
@@ -1233,8 +1225,8 @@ void File_Ac4::Streams_Fill()
         Fill_SetOptions(Stream_Audio, 0, (S+" Pos").c_str(), "N NIY");
         Fill(Stream_Audio, 0, (S+" Index").c_str(), Substream_Info->first);
         Fill_SetOptions(Stream_Audio, 0, (S+" Index").c_str(), "N NIY");
-        Fill(Stream_Audio, 0, (S+" ID").c_str(), AudioSubstream_Pos+1);
-        Fill_SetOptions(Stream_Audio, 0, (S+" ID").c_str(), "N NIY");
+        //Fill(Stream_Audio, 0, (S+" ID").c_str(), AudioSubstream_Pos+1);
+        //Fill_SetOptions(Stream_Audio, 0, (S+" ID").c_str(), "N NIY");
         if (!ChannelMode.empty())
         {
             Fill(Stream_Audio, 0, (S+" ChannelMode").c_str(), ChannelMode);
@@ -1753,15 +1745,16 @@ void File_Ac4::ac4_toc()
         TEST_SB_SKIP(                                           "b_program_id");
             int16u short_program_id;
             Get_S2 (16, short_program_id,                       "short_program_id");
-            if (Retrieve_Const(Stream_Audio, 0, Audio_ID).empty())
+            bool FillID=Retrieve_Const(Stream_Audio, 0, Audio_UniqueID).empty();
+            if (FillID)
             {
-                Fill(Stream_General, 0, General_ID, short_program_id);
-                Fill(Stream_Audio, 0, Audio_ID, short_program_id);
+                Fill(Stream_General, 0, General_UniqueID, short_program_id);
+                Fill(Stream_Audio, 0, Audio_UniqueID, short_program_id);
             }
             TEST_SB_SKIP(                                       "b_program_uuid_present");
                 int128u program_uuid;
                 Get_UUID (program_uuid,                         "program_uuid");
-                if (Retrieve_Const(Stream_Audio, 0, Audio_UniqueID).empty())
+                if (FillID)
                 {
                     Fill(Stream_General, 0, General_UniqueID, Ztring().From_UUID(program_uuid));
                     Fill(Stream_Audio, 0, Audio_UniqueID, Ztring().From_UUID(program_uuid));
