@@ -535,7 +535,9 @@ private :
             presentation_config((int8u)-1),
             presentation_id((int32u)-1),
             frame_rate_fraction_minus1(0),
-            dolby_atmos_indicator(false)
+            dolby_atmos_indicator(false),
+            substream_index((int8u)-1),
+            b_multi_pid_PresentAndValue((int8u)-1)
         {}
     };
     vector<presentation> Presentations;
@@ -573,6 +575,7 @@ private :
         int8u top_channel_pairs;
 
         group_substream() :
+            substream_index((int8u)-1),
             sus_ver(false),
             ch_mode((int8u)-1),
             ch_mode_core((int8u)-1),

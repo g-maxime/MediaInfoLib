@@ -1123,6 +1123,8 @@ void File_Ac4::Streams_Fill()
         for (size_t s=0; s<Group.Substreams.size(); s++)
         {
             const group_substream& GroupInfo=Group.Substreams[s];
+            if (GroupInfo.substream_index==(int8u)-1)
+                continue;
             size_t AudioSubstream_Pos=0;
             for (std::map<int8u, substream_type_t>::iterator Substream_Type_Item=Substream_Type.begin(); Substream_Type_Item!=Substream_Type.end() && Substream_Type_Item->first!=GroupInfo.substream_index; Substream_Type_Item++)
                 if (Substream_Type_Item->second==Type_Ac4_Substream)
