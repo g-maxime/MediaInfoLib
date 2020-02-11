@@ -749,11 +749,11 @@ private :
 
     //Temp
     int32u frame_size;
+    int32u payload_base;
     int16u sync_word;
     int8u bitstream_version;
     int8u frame_rate_index;
     bool fs_index;
-    int8u payload_base;
     int8u frame_rate_factor;
     int8u frame_rate_fraction;
     int8u max_group_index;

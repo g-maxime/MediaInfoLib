@@ -1536,7 +1536,33 @@ void File_Ac4::raw_ac4_frame_substreams()
         Skip_S1(byte_align,                                     "byte_align");
     BS_End();
     if (payload_base)
-        Skip_XX(payload_base,                                   "fill_area");
+    {
+        if (payload_base>Element_Size-Element_Offset)
+        {
+            Skip_XX(Element_Size-Element_Offset,                "?");
+            return;
+        }
+        size_t Max=Buffer_Offset+(size_t)(Element_Offset+payload_base);
+        size_t Min=Buffer_Offset+(size_t)Element_Offset;
+        size_t End=Min;
+        while (End<Max && Buffer[End]>=0x20 && Buffer[End]<0x7F)
+            End++;
+        if (End!=Min)
+        {
+            size_t Encoded_Library_Size=(End-Min);
+            string Encoded_Library;
+            Get_String (Encoded_Library_Size, Encoded_Library,  "Library name (guessed)");
+            if (Retrieve_Const(Stream_Audio, 0, Audio_Encoded_Library).empty())
+            {
+                Fill(Stream_General, 0, General_Encoded_Library, Encoded_Library);
+                Fill(Stream_Audio, 0, Audio_Encoded_Library, Encoded_Library);
+            }
+            payload_base-=(int32u)Encoded_Library_Size;
+        }
+        while (End<Max && !Buffer[End])
+            End++;
+        Skip_XX(payload_base,                                   End!=Max?"Unknown":"fill_area");
+    }
     int64u Substreams_StartOffset=Element_Offset;
 
     //Check integrity
@@ -1708,14 +1734,12 @@ void File_Ac4::ac4_toc()
 
     payload_base=0;
     TEST_SB_SKIP(                                               "b_payload_base");
-        Get_S1 (5, payload_base,                                "payload_base_minus1");
+        Get_S4 (5, payload_base,                                "payload_base_minus1");
         payload_base++;
         if (payload_base==32)
         {
-            int32u payload_base32;
-            Get_V4 (3, payload_base32,                          "payload_base");
-            payload_base32+=32;
-            payload_base=(int8u)payload_base32;
+            Get_V4 (3, payload_base,                            "payload_base");
+            payload_base+=32;
         }
     TEST_SB_END();
 
@@ -1727,9 +1751,21 @@ void File_Ac4::ac4_toc()
     else
     {
         TEST_SB_SKIP(                                           "b_program_id");
-            Skip_S2(16,                                         "short_program_id");
+            int16u short_program_id;
+            Get_S2 (16, short_program_id,                       "short_program_id");
+            if (Retrieve_Const(Stream_Audio, 0, Audio_ID).empty())
+            {
+                Fill(Stream_General, 0, General_ID, short_program_id);
+                Fill(Stream_Audio, 0, Audio_ID, short_program_id);
+            }
             TEST_SB_SKIP(                                       "b_program_uuid_present");
-                Skip_BS(128,                                    "program_uuid");
+                int128u program_uuid;
+                Get_UUID (program_uuid,                         "program_uuid");
+                if (Retrieve_Const(Stream_Audio, 0, Audio_UniqueID).empty())
+                {
+                    Fill(Stream_General, 0, General_UniqueID, Ztring().From_UUID(program_uuid));
+                    Fill(Stream_Audio, 0, Audio_UniqueID, Ztring().From_UUID(program_uuid));
+                }
             TEST_SB_END();
         TEST_SB_END();
 
