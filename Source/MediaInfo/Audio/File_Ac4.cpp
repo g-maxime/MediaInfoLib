@@ -1004,17 +1004,18 @@ void File_Ac4::Streams_Fill()
             }
         }
 
-        ZtringList GroupPos, GroupIDs;
+        ZtringList GroupPos, GroupNum;
         for (size_t s=0; s<Presentation_Current.substream_group_info_specifiers.size(); s++)
         {
             GroupPos.push_back(Ztring::ToZtring(Presentation_Current.substream_group_info_specifiers[s]));
-            GroupIDs.push_back(Ztring::ToZtring(Presentation_Current.substream_group_info_specifiers[s]+1));
+            GroupNum.push_back(Ztring::ToZtring(Presentation_Current.substream_group_info_specifiers[s]+1));
         }
         GroupPos.Separator_Set(0, __T(" + "));
         Fill(Stream_Audio, 0, (P + " GroupPos").c_str(), GroupPos.Read());
         Fill_SetOptions(Stream_Audio, 0, (P+" GroupPos").c_str(), "N NIY");
-        GroupIDs.Separator_Set(0, __T(" + "));
-        Fill(Stream_Audio, 0, (P+" GroupIDs").c_str(), GroupIDs.Read());
+        GroupNum.Separator_Set(0, __T(" + "));
+        Fill(Stream_Audio, 0, (P+" Group#s").c_str(), GroupNum.Read());
+        Fill_SetOptions(Stream_Audio, 0, (P+" Group#s").c_str(), "Y NIN");
     }
     for (size_t g=0; g<Groups.size(); g++)
     {
@@ -1119,7 +1120,7 @@ void File_Ac4::Streams_Fill()
                 Fill(Stream_Audio, 0, (G+" NumberOfDynamicObjects").c_str(), n_objects-num_channels_in_bed_Total);
         }
 
-        ZtringList SubstreamPos, SubstreamIndex, SubstreamIDs;
+        ZtringList SubstreamPos, SubstreamNum;
         for (size_t s=0; s<Group.Substreams.size(); s++)
         {
             const group_substream& GroupInfo=Group.Substreams[s];
@@ -1130,17 +1131,14 @@ void File_Ac4::Streams_Fill()
                 if (Substream_Type_Item->second==Type_Ac4_Substream)
                     AudioSubstream_Pos++;
             SubstreamPos.push_back(Ztring::ToZtring(AudioSubstream_Pos));
-            SubstreamIndex.push_back(Ztring::ToZtring(GroupInfo.substream_index));
-            SubstreamIDs.push_back(Ztring::ToZtring(AudioSubstream_Pos+1));
+            SubstreamNum.push_back(Ztring::ToZtring(AudioSubstream_Pos+1));
         }
         SubstreamPos.Separator_Set(0, __T(" + "));
         Fill(Stream_Audio, 0, (G+" SubstreamPos").c_str(), SubstreamPos.Read());
         Fill_SetOptions(Stream_Audio, 0, (G+" SubstreamPos").c_str(), "N NIY");
-        SubstreamIndex.Separator_Set(0, __T(" + "));
-        Fill(Stream_Audio, 0, (G+" SubstreamIndex").c_str(), SubstreamIndex.Read());
-        Fill_SetOptions(Stream_Audio, 0, (G+" SubstreamIndex").c_str(), "N NIY");
-        SubstreamIDs.Separator_Set(0, __T(" + "));
-        Fill(Stream_Audio, 0, (G+" SubstreamIDs").c_str(), SubstreamIDs.Read());
+        SubstreamNum.Separator_Set(0, __T(" + "));
+        Fill(Stream_Audio, 0, (G+" Substream#s").c_str(), SubstreamNum.Read());
+        Fill_SetOptions(Stream_Audio, 0, (G+" SubstreamIndex").c_str(), "Y NIN");
     }
     for (map<int8u, audio_substream>::iterator Substream_Info=AudioSubstreams.begin(); Substream_Info!=AudioSubstreams.end(); Substream_Info++)
     {

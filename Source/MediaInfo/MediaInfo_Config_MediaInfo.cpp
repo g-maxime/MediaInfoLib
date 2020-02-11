@@ -1529,7 +1529,7 @@ void MediaInfo_Config_MediaInfo::File_ExpandSubs_Update(void** Source)
             Ztring down;
         };
         const size_t Subs_Size=2;
-        sub Subs[Subs_Size]={ {" GroupPos", " GroupIDs", "Group"} , {" SubstreamPos", " SubstreamIDs", "Substream"} };
+        sub Subs[Subs_Size]={ {" GroupPos", " Group#s", "Group"} , {" SubstreamPos", " Substream#s", "Substream"} };
         for (size_t Subs_Pos=0; Subs_Pos<Subs_Size; Subs_Pos++)
             for (size_t StreamKind=Stream_General; StreamKind<Stream_Max; StreamKind++)
                 for (size_t StreamPos=0; StreamPos<(*Stream_More)[StreamKind].size(); StreamPos++)
