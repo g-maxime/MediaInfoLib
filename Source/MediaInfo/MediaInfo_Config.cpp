@@ -2245,13 +2245,9 @@ Ztring MediaInfo_Config::Language_Get (const Ztring &Count, const Ztring &Value,
         return Count;
 
     //Different Plurals are available or not?
-    if (Language_Get(Value+__T("1")).empty())
-    {
-        //if (Count==__T("0") || Count==__T("1"))
-            return Count+Language_Get(Value);
-        //else
-            //return Count+Language_Get(Value+__T("s"));
-    }
+    Ztring Value1=Value+__T('1');
+    if (!ValueIsAlwaysSame && Language_Get(Value1)==Value1)
+        ValueIsAlwaysSame=true;
 
     //Detecting plural form for multiple plurals
     int8u  Form=(int8u)-1;

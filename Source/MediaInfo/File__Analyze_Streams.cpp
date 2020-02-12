@@ -1054,6 +1054,17 @@ void File__Analyze::Fill_Dup(stream_t StreamKind, size_t StreamPos, const char* 
 }
 
 //---------------------------------------------------------------------------
+void File__Analyze::Fill_Measure(stream_t StreamKind, size_t StreamPos, const char* Parameter, const Ztring& Value, const Ztring& Measure, bool Replace)
+{
+    string Parameter_String(Parameter);
+    Parameter_String+="/String";
+    Fill(Stream_Audio, 0, Parameter, Value, Replace);
+    Fill_SetOptions(Stream_Audio, 0, Parameter, "N NFY");
+    Fill(Stream_Audio, 0, Parameter_String.c_str(), MediaInfoLib::Config.Language_Get(Value, Measure), Replace);
+    Fill_SetOptions(Stream_Audio, 0, Parameter_String.c_str(), "Y NFN");
+}
+
+//---------------------------------------------------------------------------
 void File__Analyze::Fill (stream_t StreamKind, size_t StreamPos, const char* Parameter, const Ztring &Value, bool Replace)
 {
     //Integrity

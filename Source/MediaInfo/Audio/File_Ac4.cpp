@@ -931,28 +931,59 @@ void File_Ac4::Streams_Fill()
                 Fill(Stream_Audio, 0, (P+" Loudness").c_str(), "Yes");
                 if (L.loudspchgat!=(int16u)-1)
                 {
-                    string IntegratedLoudness_Speech=Ztring::ToZtring((L.loudspchgat-1024)/10.0, 1).To_UTF8()+" LKFS";
-                    if (L.loudspchgat_dialgate_prac_type)
-                        IntegratedLoudness_Speech+=" ("+Value(Ac4_loud_dialgate_prac_type, L.loudspchgat_dialgate_prac_type)+')';
+                    string IntegratedLoudness_Speech=Ztring::ToZtring((L.loudspchgat-1024)/10.0, 1).To_UTF8();
                     Fill(Stream_Audio, 0, (P+" Loudness IntegratedLoudness_Speech").c_str(), IntegratedLoudness_Speech);
+                    Fill_SetOptions(Stream_Audio, 0, (P+" Loudness IntegratedLoudness_Speech").c_str(), "N NFY");
+                    IntegratedLoudness_Speech+=" LKFS";
+                    if (L.loudspchgat_dialgate_prac_type)
+                    {
+                        string Type=Value(Ac4_loud_dialgate_prac_type, L.loudspchgat_dialgate_prac_type);
+                        Fill(Stream_Audio, 0, (P+" Loudness IntegratedLoudness_Speech_Type").c_str(), Type);
+                        Fill_SetOptions(Stream_Audio, 0, (P+" Loudness IntegratedLoudness_Speech_Type").c_str(), "N NTY");
+                        IntegratedLoudness_Speech+=" ("+Type+')';
+                    }
+                    Fill(Stream_Audio, 0, (P+" Loudness IntegratedLoudness_Speech/String").c_str(), IntegratedLoudness_Speech);
+                    Fill_SetOptions(Stream_Audio, 0, (P+" Loudness IntegratedLoudness_Speech/String").c_str(), "Y NTN");
                 }
                 if (L.loudrelgat!=(int16u)-1)
-                    Fill(Stream_Audio, 0, (P+" Loudness IntegratedLoudness_Level").c_str(), Ztring::ToZtring((L.loudrelgat-1024)/10.0, 1)+__T(" LKFS"));
+                    Fill_Measure(Stream_Audio, 0, (P+" Loudness IntegratedLoudness_Level").c_str(), Ztring::ToZtring((L.loudrelgat-1024)/10.0, 1), __T(" LKFS"));
                 if (L.loud_prac_type!=(int8u)-1 && L.loud_prac_type)
                 {
                     Fill(Stream_Audio, 0, (P+" Loudness AudioLoudnessStandard").c_str(), Value(Ac4_loud_prac_type, L.loud_prac_type));
                     Fill(Stream_Audio, 0, (P+" Loudness RealtimeLoudnessCorrected").c_str(), L.b_loudcorr_type?"Yes":"No");
                     string DialogueCorrected=L.loud_dialgate_prac_type!=(int8u)-1?"Yes":"No";
-                    if (L.loud_dialgate_prac_type!=(int8u)-1 && L.loud_dialgate_prac_type)
-                        DialogueCorrected+=" ("+Value(Ac4_loud_dialgate_prac_type, L.loud_dialgate_prac_type)+')';
                     Fill(Stream_Audio, 0, (P+" Loudness DialogueCorrected").c_str(), DialogueCorrected);
+                    Fill_SetOptions(Stream_Audio, 0, (P+" Loudness DialogueCorrected").c_str(), "N NTY");
+                    if (L.loud_dialgate_prac_type!=(int8u)-1 && L.loud_dialgate_prac_type)
+                    {
+                        string Type=Value(Ac4_loud_dialgate_prac_type, L.loud_dialgate_prac_type);
+                        Fill(Stream_Audio, 0, (P+" Loudness DialogueCorrected_Type").c_str(), Type);
+                        Fill_SetOptions(Stream_Audio, 0, (P+" Loudness DialogueCorrected_Type").c_str(), "N NTY");
+                        DialogueCorrected+=" ("+ Type +')';
+                    }
+                    Fill(Stream_Audio, 0, (P+" Loudness DialogueCorrected/String").c_str(), DialogueCorrected);
+                    Fill_SetOptions(Stream_Audio, 0, (P+" Loudness DialogueCorrected/String").c_str(), "Y NTN");
                 }
                 if (L.max_truepk!=(int16u)-1)
-                    Fill(Stream_Audio, 0, (P+" Loudness MawTruePeak").c_str(), Ztring::ToZtring((L.max_truepk-1024)/10.0, 1)+__T(" dBTP"));
+                    Fill_Measure(Stream_Audio, 0, (P+" Loudness MaxTruePeak").c_str(), Ztring::ToZtring((L.max_truepk-1024)/10.0, 1), __T(" dBTP"));
                 if (L.max_loudmntry!=(int16u)-1)
-                    Fill(Stream_Audio, 0, (P+" Loudness MaximumMomentaryLoudness").c_str(), Ztring::ToZtring((L.max_loudmntry-1024)/10.0, 1)+__T(" LUFS"));
+                    Fill_Measure(Stream_Audio, 0, (P+" Loudness MaximumMomentaryLoudness").c_str(), Ztring::ToZtring((L.max_loudmntry-1024)/10.0, 1), __T(" LUFS"));
                 if (L.lra!=(int16u)-1)
-                    Fill(Stream_Audio, 0, (P+" Loudness Loudness_Range").c_str(), Ztring::ToZtring(L.lra/10.0, 1).To_UTF8()+" LU ("+Value(Ac4_lra_prac_type, L.lra_prac_type)+')');
+                {
+                    string Loudness_Range=Ztring::ToZtring(L.lra/10.0, 1).To_UTF8();
+                    Fill(Stream_Audio, 0, (P+" Loudness Loudness_Range").c_str(), Loudness_Range);
+                    Fill_SetOptions(Stream_Audio, 0, (P+" Loudness Loudness_Range").c_str(), "N NFY");
+                    Loudness_Range+=" LU";
+                    if (L.loudspchgat_dialgate_prac_type)
+                    {
+                        string Type=Value(Ac4_lra_prac_type, L.lra_prac_type);
+                        Fill(Stream_Audio, 0, (P+" Loudness Loudness_Range_Type").c_str(), Type);
+                        Fill_SetOptions(Stream_Audio, 0, (P+" Loudness Loudness_Range_Type").c_str(), "N NTY");
+                        Loudness_Range+=" ("+Type+')';
+                    }
+                    Fill(Stream_Audio, 0, (P+" Loudness Loudness_Range/String").c_str(), Loudness_Range);
+                    Fill_SetOptions(Stream_Audio, 0, (P+" Loudness Loudness_Range/String").c_str(), "Y NTN");
+                }
             }
         }
         {
@@ -989,16 +1020,16 @@ void File_Ac4::Streams_Fill()
                 Fill(Stream_Audio, 0, (P+" Downmix").c_str(), "Yes");
                 if (D.loro_centre_mixgain!=(int8u)-1)
                 {
-                    Fill(Stream_Audio, 0, (P+" Downmix LoRoCenterMixGain").c_str(), Value(Ac4_loro_centre_mixgain, D.loro_centre_mixgain, 1)+" dB");
-                    Fill(Stream_Audio, 0, (P+" Downmix LoRoSurroundMixGain").c_str(), Value(Ac4_loro_centre_mixgain, D.loro_surround_mixgain, 1)+" dB");
+                    Fill(Stream_Audio, 0, (P+" Downmix LoRoCenterMixGain").c_str(), Value(Ac4_loro_centre_mixgain, D.loro_centre_mixgain, 1), " dB");
+                    Fill(Stream_Audio, 0, (P+" Downmix LoRoSurroundMixGain").c_str(), Value(Ac4_loro_centre_mixgain, D.loro_surround_mixgain, 1), " dB");
                 }
                 if (D.ltrt_centre_mixgain!=(int8u)-1)
                 {
-                    Fill(Stream_Audio, 0, (P+" Downmix LtRtCenterMixGain").c_str(), Value(Ac4_loro_centre_mixgain, D.ltrt_centre_mixgain, 1)+" dB");
-                    Fill(Stream_Audio, 0, (P+" Downmix LtRtSurroundMixGain").c_str(), Value(Ac4_loro_centre_mixgain, D.ltrt_surround_mixgain, 1)+" dB");
+                    Fill(Stream_Audio, 0, (P+" Downmix LtRtCenterMixGain").c_str(), Value(Ac4_loro_centre_mixgain, D.ltrt_centre_mixgain, 1), " dB");
+                    Fill(Stream_Audio, 0, (P+" Downmix LtRtSurroundMixGain").c_str(), Value(Ac4_loro_centre_mixgain, D.ltrt_surround_mixgain, 1), " dB");
                 }
                 if (D.lfe_mixgain!=(int8u)-1)
-                    Fill(Stream_Audio, 0, (P+" Downmix LfeMixGain").c_str(), Ztring::ToZtring(10-D.lfe_mixgain).To_UTF8()+" dB");
+                    Fill(Stream_Audio, 0, (P+" Downmix LfeMixGain").c_str(), Ztring::ToZtring(10-D.lfe_mixgain).To_UTF8(), " dB");
                 if (D.preferred_dmx_method!=(int8u)-1)
                     Fill(Stream_Audio, 0, (P+" Downmix PreferredDownmix").c_str(), Value(Ac4_preferred_dmx_method, D.preferred_dmx_method));
             }
@@ -1316,7 +1347,7 @@ void File_Ac4::Streams_Fill()
                 Fill(Stream_Audio, 0, (S+" DialogueEnhancement Enabled").c_str(), "Yes");
                 if (D.Config.de_method!=(int8u)-1)
                 {
-                    Fill(Stream_Audio, 0, (S+" DialogueEnhancement MaxGain").c_str(), Ztring::ToZtring((D.Config.de_max_gain+1)*3)+__T(" dB"));
+                    Fill_Measure(Stream_Audio, 0, (S+" DialogueEnhancement MaxGain").c_str(), (D.Config.de_max_gain+1)*3, __T(" dB"));
                     Fill(Stream_Audio, 0, (S+" DialogueEnhancement ChannelConfiguration").c_str(), Value(Ac4_de_channel_config, D.Config.de_channel_config));
                 }
             }
