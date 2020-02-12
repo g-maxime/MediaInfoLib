@@ -378,28 +378,6 @@ public :
         int8u drc_attack_threshold;
         int8u drc_release_threshold;
 
-        drc_decoder_config_curve()
-        {
-            memset(this, -1, sizeof(drc_decoder_config_curve));
-        }
-
-        drc_decoder_config_curve(int8u drc_lev_nullband_low_, int8u drc_lev_nullband_high_, int8u drc_gain_max_boost_, int8u drc_gain_max_cut_, int8u drc_lev_max_cut_, int8u drc_gain_section_cut_, int8u drc_lev_section_cut_, int8u drc_tc_attack_, int8u drc_tc_release_, int8u drc_tc_attack_fast_, int8u drc_tc_release_fast_, int8u drc_attack_threshold_, int8u drc_release_threshold_) :
-            drc_lev_nullband_low(drc_lev_nullband_low_),
-            drc_lev_nullband_high(drc_lev_nullband_high_),
-            drc_gain_max_boost(drc_gain_max_boost_),
-            drc_gain_max_cut(drc_gain_max_cut_),
-            drc_lev_max_cut(drc_lev_max_cut_),
-            drc_gain_section_cut(drc_gain_section_cut_),
-            drc_lev_section_cut(drc_lev_section_cut_),
-            drc_tc_attack(drc_tc_attack_),
-            drc_tc_release(drc_tc_release_),
-            drc_tc_attack_fast(drc_tc_attack_fast_),
-            drc_tc_release_fast(drc_tc_release_fast_),
-            drc_attack_threshold(drc_attack_threshold_),
-            drc_release_threshold(drc_release_threshold_)
-        {
-        }
-
         bool operator==(const drc_decoder_config_curve& C)
         {
             return !memcmp(this, &C, sizeof(drc_decoder_config_curve));
