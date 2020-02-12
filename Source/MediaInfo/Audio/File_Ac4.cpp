@@ -1093,6 +1093,7 @@ void File_Ac4::Streams_Fill()
         Fill(Stream_Audio, 0, (G+" NumberOfSubstreams").c_str(), Group.Substreams.size());
         int8u n_objects=0;
         int8u num_channels_in_bed_Total=0;
+        int32u nonstd_bed_channel_assignment_mask=0;
         for (size_t s=0; s<Group.Substreams.size(); s++)
         {
             const group_substream& Substream=Group.Substreams[s];
@@ -1101,17 +1102,22 @@ void File_Ac4::Streams_Fill()
                 n_objects+=objs_to_n_objects(Substream.n_objects_code, Substream.b_lfe);
                 if (Substream.nonstd_bed_channel_assignment_mask!=(int32u)-1)
                 {
-                    Ztring BedChannelConfiguration=AC4_nonstd_bed_channel_assignment_mask_ChannelLayout(Substream.nonstd_bed_channel_assignment_mask);
-                    int8u num_channels_in_bed =AC4_nonstd_bed_channel_assignment_mask_2_num_channels_in_bed(Substream.nonstd_bed_channel_assignment_mask);
-                    Fill(Stream_Audio, 0, (G+" BedChannelCount").c_str(), num_channels_in_bed);
-                    Fill_SetOptions(Stream_Audio, 0, (G+" BedChannelCount").c_str(), "N NIY");
-                    Fill(Stream_Audio, 0, (G+" BedChannelCount/String").c_str(), MediaInfoLib::Config.Language_Get(Ztring::ToZtring(num_channels_in_bed), __T(" channel")));
-                    Fill_SetOptions(Stream_Audio, 0, (G+" BedChannelCount/String").c_str(), "Y NIN");
-                    Fill(Stream_Audio, 0, (G+" BedChannelConfiguration").c_str(), BedChannelConfiguration);
-                    Fill(Stream_Audio, 0, (G+" ChannelMode").c_str(), Ac4_nonstd_2_ch_mode_String(Substream.nonstd_bed_channel_assignment_mask));
-                    num_channels_in_bed_Total+=num_channels_in_bed;
+                    nonstd_bed_channel_assignment_mask|=Substream.nonstd_bed_channel_assignment_mask;
+                    num_channels_in_bed_Total+=AC4_nonstd_bed_channel_assignment_mask_2_num_channels_in_bed(Substream.nonstd_bed_channel_assignment_mask);
                 }
             }
+        }
+        if (nonstd_bed_channel_assignment_mask)
+        {
+            Ztring BedChannelConfiguration=AC4_nonstd_bed_channel_assignment_mask_ChannelLayout(nonstd_bed_channel_assignment_mask);
+            int8u num_channels_in_bed=AC4_nonstd_bed_channel_assignment_mask_2_num_channels_in_bed(nonstd_bed_channel_assignment_mask);
+            Ztring Count=Ztring::ToZtring(num_channels_in_bed);
+            Fill(Stream_Audio, 0, (G+" BedChannelCount").c_str(), num_channels_in_bed);
+            Fill_SetOptions(Stream_Audio, 0, (G+" BedChannelCount").c_str(), "N NIY");
+            Fill(Stream_Audio, 0, (G+" BedChannelCount/String").c_str(), MediaInfoLib::Config.Language_Get(Count, __T(" channel")));
+            Fill_SetOptions(Stream_Audio, 0, (G+" BedChannelCount/String").c_str(), "Y NIN");
+            Fill(Stream_Audio, 0, (G+" BedChannelConfiguration").c_str(), BedChannelConfiguration);
+            Fill(Stream_Audio, 0, (G+" ChannelMode").c_str(), Ac4_nonstd_2_ch_mode_String(nonstd_bed_channel_assignment_mask));
         }
         if (n_objects)
         {
@@ -1127,9 +1133,12 @@ void File_Ac4::Streams_Fill()
             if (GroupInfo.substream_index==(int8u)-1)
                 continue;
             size_t AudioSubstream_Pos=0;
-            for (std::map<int8u, substream_type_t>::iterator Substream_Type_Item=Substream_Type.begin(); Substream_Type_Item!=Substream_Type.end() && Substream_Type_Item->first!=GroupInfo.substream_index; Substream_Type_Item++)
+            std::map<int8u, substream_type_t>::iterator Substream_Type_Item=Substream_Type.begin();
+            for (; Substream_Type_Item!=Substream_Type.end() && Substream_Type_Item->first!=GroupInfo.substream_index; Substream_Type_Item++)
                 if (Substream_Type_Item->second==Type_Ac4_Substream)
                     AudioSubstream_Pos++;
+            if (Substream_Type_Item==Substream_Type.end())
+                continue;
             SubstreamPos.push_back(Ztring::ToZtring(AudioSubstream_Pos));
             SubstreamNum.push_back(Ztring::ToZtring(AudioSubstream_Pos+1));
         }
@@ -1138,7 +1147,7 @@ void File_Ac4::Streams_Fill()
         Fill_SetOptions(Stream_Audio, 0, (G+" SubstreamPos").c_str(), "N NIY");
         SubstreamNum.Separator_Set(0, __T(" + "));
         Fill(Stream_Audio, 0, (G+" Substream#s").c_str(), SubstreamNum.Read());
-        Fill_SetOptions(Stream_Audio, 0, (G+" SubstreamIndex").c_str(), "Y NIN");
+        Fill_SetOptions(Stream_Audio, 0, (G+" Substream#s").c_str(), "Y NIN");
     }
     for (map<int8u, audio_substream>::iterator Substream_Info=AudioSubstreams.begin(); Substream_Info!=AudioSubstreams.end(); Substream_Info++)
     {
@@ -2534,6 +2543,8 @@ void File_Ac4::ac4_substream_info_obj(group_substream& G, bool b_substreams_pres
 
         G.substream_index=substream_index;
         G.b_iframe=b_iframes[0]; //TODO frame_rate_factor
+
+        Substream_Type[substream_index]=Type_Ac4_Substream;
    }
     Element_End0();
 }
