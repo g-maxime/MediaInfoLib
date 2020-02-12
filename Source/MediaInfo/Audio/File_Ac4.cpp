@@ -792,6 +792,8 @@ void File_Ac4::Streams_Fill()
     Fill(Stream_Audio, 0, Audio_Format, "AC-4");
     Fill(Stream_Audio, 0, Audio_Format_Commercial_IfAny, "Dolby AC-4");
     Fill(Stream_Audio, 0, Audio_Format_Version, __T("Version ")+Ztring::ToZtring(bitstream_version));
+    Fill(Stream_Audio, 0, "bitstream_version", bitstream_version, 10, true);//TODO remove
+    Fill_SetOptions(Stream_Audio, 0, "bitstream_version", "N NTN"); //TODO remove
     Fill(Stream_Audio, 0, Audio_SamplingRate, fs_index?48000:44100);
     Fill(Stream_Audio, 0, Audio_FrameRate, Ac4_frame_rate[fs_index][frame_rate_index]);
     /* Old, not supporting non natural I-Frames rate
@@ -1697,8 +1699,6 @@ void File_Ac4::ac4_toc()
         bitstream_version32+=3;
         bitstream_version=(int8u)bitstream_version32;
     }
-    Fill(Stream_Audio, 0, "bitstream_version", bitstream_version, 10, true);//TODO remove
-    Fill_SetOptions(Stream_Audio, 0, "bitstream_version", "N NTN"); //TODO remove
     Get_S2 (10, sequence_counter,                               "sequence_counter");
     TEST_SB_SKIP(                                               "b_wait_frames");
         int8u wait_frames;
