@@ -258,7 +258,7 @@ enum ch
     Rw   = 1 << 15,
     LFE2 = 1 << 16,
     // Not in nonstd_bed_channel_assignment
-    Bc   = 1 << 17,
+    Cb   = 1 << 17,
     Lscr = 1 << 18,
     Rscr = 1 << 19,
     Tsl  = 1 << 20,
@@ -267,6 +267,11 @@ enum ch
     Bfl  = 1 << 23,
     Bfr  = 1 << 24,
     Bfc  = 1 << 25,
+    Tfc  = 1 << 26,
+    Tbc  = 1 << 27,
+    Vhl  = 1 << 26,
+    Vhr  = 1 << 27,
+    ch_Max = 1 << 31
 };
 
 static const sized_array_string Ac4_immersive_stereo_String=
@@ -287,13 +292,13 @@ static int32u Ac4_ch_mode_2_nonstd_Values[16]=
     L | R | C | Ls | Rs | Lb | Rb | LFE,        //7.1 3/4/0
     L | R | C | Ls | Rs | Lw | Rw,              //7.0 5/2/0
     L | R | C | Ls | Rs | Lw | Rw | LFE,        //7.1 5/2/0
-    L | R | C | Ls | Rs | Tfl | Tfr,            //7.0 3/2/2
-    L | R | C | Ls | Rs | Tfl | Tfr | LFE,      //7.1 3/2/2
+    L | R | C | Ls | Rs | Vhl | Vhl,            //7.0 3/2/2
+    L | R | C | Ls | Rs | Vhl | Vhl | LFE,      //7.1 3/2/2
     L | R | C | Ls | Rs | Lscr | Rscr | Tfl | Tfr | Tbl | Tbr,                  //7.0.4
     L | R | C | Ls | Rs | Lscr | Rscr | Tfl | Tfr | Tbl | Tbr | LFE,            //7.1.4
     L | R | C | Ls | Rs | Lb | Rb | Lscr | Rscr | Tfl | Tfr | Tbl | Tbr,        //9.0.4
     L | R | C | Ls | Rs | Lb | Rb | Lscr | Rscr | Tfl | Tfr | Tbl | Tbr | LFE,  //9.1.4
-    L | R | C | Ls | Rs | Lb | Rb | Lw | Rw | Bc | Lscr | Rscr | Tfl | Tfr | Tbl | Tbr | Tsl | Tsr | Tc | Bfl | Bfr | Bfc | LFE | LFE2,  //22.2
+    L | R | C | Ls | Rs | Lb | Rb | Lw | Rw | Cb | Tfc | Tbc | Tfl | Tfr | Tbl | Tbr | Tsl | Tsr | Tc | Bfl | Bfr | Bfc | LFE | LFE2,  //22.2
 };
 static int32u Ac4_ch_mode_2_nonstd(int8u ch_mode, bool b_4_back_channels_present=false, bool b_centre_present=false, int8u top_channels_present=0)
 {
@@ -374,15 +379,14 @@ static const sized_array_string Ac4_presentation_config=
 "EMDF Only",
 };
 
-static const int8u Ac4_presentation_config_split[8][3]=
+static const size_t Ac4_presentation_config_split_Size = 6;
+static const int8u Ac4_presentation_config_split[Ac4_presentation_config_split_Size][3] =
 {
     {       ME,        D,  (int8u)-1},
     {       CM,        D,  (int8u)-1},
     {       CM,        A,  (int8u)-1},
     {       ME,        D,          A},
     {       CM,        D,          A},
-    {(int8u)-1, (int8u)-1, (int8u)-1},
-    {(int8u)-1, (int8u)-1, (int8u)-1},
 };
 
 const size_t Curve_Profiles_Count=6;
@@ -585,7 +589,7 @@ static inline int8u objs_to_n_objects(int8u n_objects_code, bool b_lfe)
 }
 
 //---------------------------------------------------------------------------
-static const char* AC4_nonstd_bed_channel_assignment_mask_ChannelLayout_List[17+9] =
+static const char* AC4_nonstd_bed_channel_assignment_mask_ChannelLayout_List[17+11] =
 {
     "L",
     "R",
@@ -605,7 +609,7 @@ static const char* AC4_nonstd_bed_channel_assignment_mask_ChannelLayout_List[17+
     "Rw",
     "LFE2",
     // Not in nonstd_bed_channel_assignment
-    "Bc",
+    "Cb",
     "Lscr",
     "Rscr",
     "Tsl",
@@ -614,6 +618,8 @@ static const char* AC4_nonstd_bed_channel_assignment_mask_ChannelLayout_List[17+
     "Bfl",
     "Bfr",
     "Bfc",
+    "Tfc",
+    "Tbc",
 };
 Ztring AC4_nonstd_bed_channel_assignment_mask_ChannelLayout(int32u nonstd_bed_channel_assignment_mask)
 {
@@ -622,7 +628,7 @@ Ztring AC4_nonstd_bed_channel_assignment_mask_ChannelLayout(int32u nonstd_bed_ch
     
     Ztring ToReturn;
 
-    for (int8u i=0; i<17+9; i++)
+    for (int8u i=0; i<17+11; i++)
     {
         if (nonstd_bed_channel_assignment_mask&(1<<i))
         {
@@ -1076,14 +1082,14 @@ void File_Ac4::Streams_Fill()
                         string Summary2;
                         if (Presentation_Current.presentation_config==(int8u)-1)
                             Summary2="Main";
-                        else if (s<3 && Ac4_presentation_config_split[Presentation_Current.presentation_config][s]!=(int8u)-1)
+                        else if (s<3 && Presentation_Current.presentation_config<Ac4_presentation_config_split_Size && Ac4_presentation_config_split[Presentation_Current.presentation_config][s]!=(int8u)-1)
                         {
                             Summary2=Ac4_content_classifier[1+Ac4_presentation_config_split[Presentation_Current.presentation_config][s]];
                             if (Ac4_presentation_config_split[Presentation_Current.presentation_config][s]==D && (Presentation_Current.presentation_config==1 || Presentation_Current.presentation_config==4) && s==1)
                                 Summary2+=" Enhancement";
                         }
                         else
-                            Summary2="?";
+                            Summary2=Ztring::ToZtring(Presentation_Current.presentation_config).To_UTF8();
                         PresentationConfigs.insert(Summary2);
                     }
                 }
