@@ -274,6 +274,30 @@ enum ch
     ch_Max = 1 << 31
 };
 
+static const size_t Ac4_channel_mask_Size=19;
+static ch Ac4_channel_mask[Ac4_channel_mask_Size][2] =
+{
+    {L,     R},
+    {C,     ch_Max},
+    {Ls,    Rs},
+    {Lb,    Rb},
+    {Tfl,   Tfr},
+    {Tbl,   Tbr},
+    {LFE,   ch_Max},
+    {Tl,    Tr},
+    {Tsl,   Tsr},
+    {Tfc,   ch_Max},
+    {Tbc,   ch_Max},
+    {Tc,    ch_Max},
+    {LFE2,  ch_Max},
+    {Bfl,   Bfr},
+    {Bfc,   ch_Max},
+    {Cb,    ch_Max},
+    {Lscr,  Rscr},
+    {Lw,    Rw},
+    {Vhl,   Vhr},
+};
+
 static const sized_array_string Ac4_immersive_stereo_String=
 {
 (const char*)2,
@@ -808,6 +832,18 @@ void File_Ac4::Streams_Fill()
     */
     if (!IFrames_Value.empty())
         Fill(Stream_Audio, 0, "IFrameInterval", IFrames_Value);
+
+    // If no frame, use dac4 content
+    bool IsUsingDac4;
+    if (Presentations.empty() && Groups.empty() && AudioSubstreams.empty())
+    {
+        Presentations=Presentations_dac4;
+        Groups=Groups_dac4;
+        IsUsingDac4=true;
+    }
+    else
+        IsUsingDac4=false;
+
     if (!Presentations.empty())
         Fill(Stream_Audio, 0, "NumberOfPresentations", Presentations.size());
     if (!AudioSubstreams.empty())
@@ -1830,22 +1866,20 @@ void File_Ac4::ac4_toc()
 
     Element_End0();
 
+    ac4_toc_Compute(Presentations, Groups, false);
+}
+
+void File_Ac4::ac4_toc_Compute(vector<presentation>& Ps, vector<group>& Gs, bool FromDac4)
+{
     //Compute helper values
-    for (size_t p=0; p<Presentations.size(); p++)
+    for (size_t p=0; p<Ps.size(); p++)
     {
-        presentation& P=Presentations[p];
-        P.pres_ch_mode=(int8u)-1;
-        P.pres_ch_mode_core=(int8u)-1;
-        P.pres_immersive_stereo=(int8u)-1;
-        P.n_substreams_in_presentation=0;
-        P.b_pres_4_back_channels_present=false;
-        P.b_pres_centre_present=false;
-        P.pres_top_channel_pairs=0;
+        presentation& P=Ps[p];
         bool b_obj_or_ajoc=false, b_obj_or_ajoc_adaptive=false;
         for (size_t Pos=0; Pos<P.substream_group_info_specifiers.size(); Pos++)
         {
             int8u Group_Index=P.substream_group_info_specifiers[Pos];
-            const group& Group=Groups[Group_Index];
+            const group& Group=Gs[Group_Index];
             if (!Group.ContentInfo.language_tag_bytes.empty() && (Group.ContentInfo.content_classifier==0 || Group.ContentInfo.content_classifier==1 || Group.ContentInfo.content_classifier==4))
             {
                 if (!P.Language.empty())
@@ -1858,6 +1892,8 @@ void File_Ac4::ac4_toc()
                 if (S.substream_type==Type_Ac4_Substream)
                 {
                     P.n_substreams_in_presentation++;
+                    if (FromDac4)
+                        continue;
 
                     // pres_ch_mode && pres_ch_mode_core
                     if (Group.b_channel_coded)
@@ -4360,6 +4396,8 @@ void File_Ac4::dac4()
     FILLING_END();
     Element_Offset=Element_Size;
     MustParse_dac4=false;
+
+    ac4_toc_Compute(Presentations_dac4, Groups_dac4, true);
 }
 
 //---------------------------------------------------------------------------
@@ -4400,12 +4438,14 @@ void File_Ac4::ac4_presentation_v1_dsi(presentation& P)
     BS_Begin();
     Get_S1 (5, P.presentation_config,                           "presentation_config_v1");
     Param_Info1(Value(Ac4_presentation_config, P.presentation_config));
-    if (P.presentation_config==7)
+    if (P.presentation_config==6)
     {
         b_add_emdf_substreams=true;
     }
     else
     {
+        if (P.presentation_config==0x1F)
+            P.presentation_config=(int8u)-1; // 0x1F means not present
         int8u dsi_frame_rate_multiply_info, dsi_frame_rate_fraction_info;
         Skip_S1(3,                                              "mdcompat");
         TEST_SB_SKIP(                                           "b_presentation_id");
@@ -4413,22 +4453,29 @@ void File_Ac4::ac4_presentation_v1_dsi(presentation& P)
         TEST_SB_END();
         Get_S1 (2, dsi_frame_rate_multiply_info,                "dsi_frame_rate_multiply_info"); //TODO
         Get_S1 (2, dsi_frame_rate_fraction_info,                "dsi_frame_rate_fraction_info"); 
-        P.Substreams.resize(P.Substreams.size()+1);
         Skip_S1(5,                                              "presentation_emdf_version");
         Skip_S2(10,                                             "presentation_key_id");
         TEST_SB_SKIP(                                           "b_presentation_channel_coded");
-            int8u dsi_presentation_ch_mode;
-            Get_S1 (5, dsi_presentation_ch_mode,                "dsi_presentation_ch_mode");
-            if (dsi_presentation_ch_mode>=11 && dsi_presentation_ch_mode<=14)
+            Get_S1 (5, P.pres_ch_mode,                          "dsi_presentation_ch_mode");
+            if (P.pres_ch_mode>=11 && P.pres_ch_mode<=14)
             {
                 Get_SB (P.b_pres_4_back_channels_present,       "pres_b_4_back_channels_present");
                 Get_S1 (2, P.pres_top_channel_pairs,            "pres_top_channel_pairs");
             }
-            Skip_S3(24,                                         "presentation_channel_mask_v1");
+            int32u presentation_channel_mask_v1;
+            Get_S3 (24, presentation_channel_mask_v1,             "presentation_channel_mask_v1");
+            presentation_channel_mask_v1 &=((int32u)-1)>>(32-Ac4_channel_mask_Size);
+            int32u nonstd_bed_channel_assignment_mask=0;
+            for (size_t i=0; i<Ac4_channel_mask_Size; i++)
+                if (presentation_channel_mask_v1 &(1<<i))
+                    for (size_t j=0; j<2; j++)
+                        if (Ac4_channel_mask[i][j]!=ch_Max)
+                            nonstd_bed_channel_assignment_mask|=Ac4_channel_mask[i][j];
+            Param_Info1(AC4_nonstd_bed_channel_assignment_mask_ChannelLayout(nonstd_bed_channel_assignment_mask));
         TEST_SB_END();
         TEST_SB_SKIP(                                           "b_presentation_core_differs");
             TEST_SB_SKIP(                                       "b_presentation_core_channel_coded");
-                Skip_S1(2,                                      "dsi_presentation_channel_mode_core");
+                Get_S1 (2, P.pres_ch_mode_core,                 "dsi_presentation_channel_mode_core");
             TEST_SB_END();
         TEST_SB_END();
         TEST_SB_SKIP(                                           "b_presentation_filter");
@@ -4439,13 +4486,15 @@ void File_Ac4::ac4_presentation_v1_dsi(presentation& P)
                 Skip_XX(n_filter_bytes*8,                       "filter_data");
         TEST_SB_END();
 
-        if (P.presentation_config==31)
+        if (P.presentation_config==(int8u)-1)
         {
             ac4_substream_group_dsi(P);
         }
         else
         {
-            Skip_SB(                                            "b_multi_pid");
+            bool b_multi_pid;
+            Get_SB (b_multi_pid,                                "b_multi_pid");
+            P.b_multi_pid_PresentAndValue=b_multi_pid;
             if (P.presentation_config<3)
             {
                 ac4_substream_group_dsi(P);
@@ -4536,21 +4585,36 @@ void File_Ac4::ac4_substream_group_dsi(presentation& P)
     G.Substreams.resize(n_substreams);
     for (int8u Pos=0; Pos<n_substreams; Pos++)
     {
+        group_substream& GS=G.Substreams[Pos];
+        GS.substream_type=Type_Ac4_Substream;
         Skip_S1(2,                                              "dsi_sf_multiplier");
         TEST_SB_SKIP(                                           "b_substream_bitrate_indicator");
             Skip_S1(5,                                          "substream_bitrate_indicator");
         TEST_SB_END();
         if (G.b_channel_coded)
         {
-            Skip_S3(24,                                         "dsi_substream_channel_mask");
+            int32u dsi_substream_channel_mask;
+            Get_S3 (24, dsi_substream_channel_mask,             "dsi_substream_channel_mask");
+            dsi_substream_channel_mask&=((int32u)-1)>>(32-Ac4_channel_mask_Size);
+            int32u nonstd_bed_channel_assignment_mask=0;
+            for (size_t i=0; i<Ac4_channel_mask_Size; i++)
+                if (dsi_substream_channel_mask&(1<<i))
+                    for (size_t j=0; j<2; j++)
+                        if (Ac4_channel_mask[i][j]!=ch_Max)
+                            nonstd_bed_channel_assignment_mask|=Ac4_channel_mask[i][j];
+            Param_Info1(AC4_nonstd_bed_channel_assignment_mask_ChannelLayout(nonstd_bed_channel_assignment_mask));
         }
         else
         {
-            TEST_SB_GET(G.Substreams[Pos].b_ajoc,               "b_ajoc")
-                Get_SB (G.Substreams[Pos].b_static_dmx,         "b_static_dmx");
-                if (G.Substreams[Pos].b_static_dmx==false)
-                    Skip_S1(4,                                  "n_dmx_objects_minus1");
-                Skip_S1(6,                                      "n_umx_objects_minus1");
+            TEST_SB_GET(GS.b_ajoc,                              "b_ajoc")
+                Get_SB (GS.b_static_dmx,                        "b_static_dmx");
+                if (GS.b_static_dmx==false)
+                {
+                    Get_S1 (4, GS.n_fullband_dmx_signals,       "n_dmx_objects_minus1");
+                    GS.n_fullband_dmx_signals++;
+                }
+                Get_S1 (6, GS.n_fullband_upmix_signals,         "n_umx_objects_minus1");
+                GS.n_fullband_upmix_signals++;
             TEST_SB_END();
 
             Skip_SB(                                            "b_substream_contains_bed_objects");
@@ -4560,12 +4624,16 @@ void File_Ac4::ac4_substream_group_dsi(presentation& P)
         }
     }
     TEST_SB_SKIP(                                               "b_content_type");
-        Skip_S1(3,                                              "content_classifier");
+        Get_S1 (3, G.ContentInfo.content_classifier,            "content_classifier");
         TEST_SB_SKIP(                                           "b_language_indicator");
             int8u n_language_tag_bytes;
             Get_S1 (6, n_language_tag_bytes,                    "n_language_tag_bytes");
             for (int8u Pos=0; Pos<n_language_tag_bytes; Pos++)
-                Skip_S1(8,                                      "language_tag_bytes");
+            {
+                int8u language_tag_bytes;
+                Get_S1 (8, language_tag_bytes,                  "language_tag_bytes");
+                G.ContentInfo.language_tag_bytes+=(language_tag_bytes<0x80?language_tag_bytes:'?');
+            }
         TEST_SB_END();
     TEST_SB_END();
     Element_End0();

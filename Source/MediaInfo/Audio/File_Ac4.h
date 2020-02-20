@@ -515,7 +515,14 @@ private :
             frame_rate_fraction_minus1(0),
             dolby_atmos_indicator(false),
             substream_index((int8u)-1),
-            b_multi_pid_PresentAndValue((int8u)-1)
+            b_multi_pid_PresentAndValue((int8u)-1),
+            pres_ch_mode((int8u)-1),
+            pres_ch_mode_core((int8u)-1),
+            pres_immersive_stereo((int8u)-1),
+            n_substreams_in_presentation(0),
+            b_pres_4_back_channels_present(false),
+            b_pres_centre_present(false),
+            pres_top_channel_pairs(0)
         {}
     };
     vector<presentation> Presentations;
@@ -631,7 +638,7 @@ private :
         int8u Buffer_Index;
         bool b_iframe;
 
-        audio_substream(bool b_iframe_) :
+        audio_substream(bool b_iframe_=true) :
             Buffer_Index(0),
             b_iframe(b_iframe_)
         {}
@@ -727,6 +734,7 @@ private :
 
     //Utils
     bool CRC_Compute(size_t Size);
+    void ac4_toc_Compute(vector<presentation>& Ps, vector<group>& Gs, bool FromDac4);
     int8u Superset(int8u Ch_Mode1, int8u Ch_Mode2);
     int16u Huffman_Decode(const ac4_huffman& Table, const char* Name);
 
