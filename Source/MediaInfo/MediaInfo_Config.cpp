@@ -2317,6 +2317,8 @@ Ztring MediaInfo_Config::Language_Get (const Ztring &Count, const Ztring &Value,
         ToReturn.FindAndReplace(DecimalPoint, Language_Get(__T("  Config_Text_FloatSeparator")), DotPos);
     else
         DotPos=ToReturn.size();
+    if (DotPos>3 && ToReturn[0]==__T('-'))
+        DotPos--;
     if (DotPos>3)
         ToReturn.insert(DotPos-3, Language_Get(__T("  Config_Text_ThousandsSeparator")));
 

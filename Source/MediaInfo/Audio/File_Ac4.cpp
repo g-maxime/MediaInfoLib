@@ -690,8 +690,8 @@ static int32u AC4_bed_chan_assign_code_2_nonstd_Values[8]=
     L | R | C | Ls | Rs | Tl | Tr | LFE,                                        //5.1.2
     L | R | C | Ls | Rs | Tfl | Tfr | Tbl | Tbr | LFE,                          //5.1.4
     L | R | C | Ls | Rs | Lb | Rb | LFE,        //7.1 3/4/0
-    L | R | C | Ls | Rs | Lb | Rb | Lw | Rw | Tl | Tr | LFE,                    //7.1.2
-    L | R | C | Ls | Rs | Lb | Rb | Lw | Rw | Tfl | Tfr | Tbl | Tbr | LFE,      //7.1.4
+    L | R | C | Ls | Rs | Lb | Rb | Tl | Tr | LFE,                              //7.1.2
+    L | R | C | Ls | Rs | Lb | Rb | Tfl | Tfr | Tbl | Tbr | LFE,                //7.1.4
 };
 static int32u AC4_bed_chan_assign_code_2_nonstd(int8u bed_chan_assign_code)
 {
