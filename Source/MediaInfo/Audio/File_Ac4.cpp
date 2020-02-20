@@ -595,6 +595,12 @@ static inline bool Channel_Mode_Contains_VhlVhr(int8u ch_mode)
 }
 
 //---------------------------------------------------------------------------
+static inline bool Channel_Mode_Contains_LscrRscr(int8u ch_mode)
+{
+    return (ch_mode == 13 || ch_mode == 14) ? true : false;
+}
+
+//---------------------------------------------------------------------------
 static inline int8u objs_to_channel_mode(int8u n_objects_code)
 {
     if (n_objects_code && n_objects_code<=4)
@@ -870,6 +876,8 @@ void File_Ac4::Streams_Fill()
                     ChannelMode[0]-=1;
                 if (Presentation_Current.pres_top_channel_pairs!=2)
                     ChannelMode[4]-=2*(2-Presentation_Current.pres_top_channel_pairs);
+                if (Channel_Mode_Contains_LscrRscr(Presentation_Current.pres_ch_mode))
+                    ChannelMode += " (scr)";
             }
         }
         else
@@ -1256,6 +1264,8 @@ void File_Ac4::Streams_Fill()
                                 ChannelMode2[0]-=1;
                             if (GroupInfo.top_channel_pairs!=2)
                                 ChannelMode2[4]-=2*(2-GroupInfo.top_channel_pairs);
+                            if (Channel_Mode_Contains_LscrRscr(GroupInfo.ch_mode))
+                                ChannelMode2 += " (scr)";
                         }
                     }
                     else if (GroupInfo.b_ajoc)
