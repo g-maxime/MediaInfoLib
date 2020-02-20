@@ -1024,16 +1024,16 @@ void File_Ac4::Streams_Fill()
                 Fill(Stream_Audio, 0, (P+" Downmix").c_str(), "Yes");
                 if (D.loro_centre_mixgain!=(int8u)-1)
                 {
-                    Fill(Stream_Audio, 0, (P+" Downmix LoRoCenterMixGain").c_str(), Value(Ac4_loro_centre_mixgain, D.loro_centre_mixgain, 1), " dB");
-                    Fill(Stream_Audio, 0, (P+" Downmix LoRoSurroundMixGain").c_str(), Value(Ac4_loro_centre_mixgain, D.loro_surround_mixgain, 1), " dB");
+                    Fill_Measure(Stream_Audio, 0, (P+" Downmix LoRoCenterMixGain").c_str(), Value(Ac4_loro_centre_mixgain, D.loro_centre_mixgain, 1), " dB");
+                    Fill_Measure(Stream_Audio, 0, (P+" Downmix LoRoSurroundMixGain").c_str(), Value(Ac4_loro_centre_mixgain, D.loro_surround_mixgain, 1), " dB");
                 }
                 if (D.ltrt_centre_mixgain!=(int8u)-1)
                 {
-                    Fill(Stream_Audio, 0, (P+" Downmix LtRtCenterMixGain").c_str(), Value(Ac4_loro_centre_mixgain, D.ltrt_centre_mixgain, 1), " dB");
-                    Fill(Stream_Audio, 0, (P+" Downmix LtRtSurroundMixGain").c_str(), Value(Ac4_loro_centre_mixgain, D.ltrt_surround_mixgain, 1), " dB");
+                    Fill_Measure(Stream_Audio, 0, (P+" Downmix LtRtCenterMixGain").c_str(), Value(Ac4_loro_centre_mixgain, D.ltrt_centre_mixgain, 1), " dB");
+                    Fill_Measure(Stream_Audio, 0, (P+" Downmix LtRtSurroundMixGain").c_str(), Value(Ac4_loro_centre_mixgain, D.ltrt_surround_mixgain, 1), " dB");
                 }
                 if (D.lfe_mixgain!=(int8u)-1)
-                    Fill(Stream_Audio, 0, (P+" Downmix LfeMixGain").c_str(), Ztring::ToZtring(10-D.lfe_mixgain).To_UTF8(), " dB");
+                    Fill_Measure(Stream_Audio, 0, (P+" Downmix LfeMixGain").c_str(), Ztring::ToZtring(10-D.lfe_mixgain).To_UTF8(), " dB");
                 if (D.preferred_dmx_method!=(int8u)-1)
                     Fill(Stream_Audio, 0, (P+" Downmix PreferredDownmix").c_str(), Value(Ac4_preferred_dmx_method, D.preferred_dmx_method));
             }
