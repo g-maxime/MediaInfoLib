@@ -318,10 +318,10 @@ static int32u Ac4_ch_mode_2_nonstd_Values[16]=
     L | R | C | Ls | Rs | Lw | Rw | LFE,        //7.1 5/2/0
     L | R | C | Ls | Rs | Vhl | Vhl,            //7.0 3/2/2
     L | R | C | Ls | Rs | Vhl | Vhl | LFE,      //7.1 3/2/2
-    L | R | C | Ls | Rs | Lscr | Rscr | Tfl | Tfr | Tbl | Tbr,                  //7.0.4
-    L | R | C | Ls | Rs | Lscr | Rscr | Tfl | Tfr | Tbl | Tbr | LFE,            //7.1.4
-    L | R | C | Ls | Rs | Lb | Rb | Lscr | Rscr | Tfl | Tfr | Tbl | Tbr,        //9.0.4
-    L | R | C | Ls | Rs | Lb | Rb | Lscr | Rscr | Tfl | Tfr | Tbl | Tbr | LFE,  //9.1.4
+    L | R | C | Ls | Rs | Lb | Rb | Tfl | Tfr | Tbl | Tbr,                      //7.0.4
+    L | R | C | Ls | Rs | Lb | Rb | Tfl | Tfr | Tbl | Tbr | LFE,                //7.1.4
+    L | R | C | Ls | Rs | Lb | Rb | Tfl | Tfr | Tbl | Tbr | Lscr | Rscr,        //9.0.4
+    L | R | C | Ls | Rs | Lb | Rb | Tfl | Tfr | Tbl | Tbr | Lscr | Rscr | LFE,  //9.1.4
     L | R | C | Ls | Rs | Lb | Rb | Lw | Rw | Cb | Tfc | Tbc | Tfl | Tfr | Tbl | Tbr | Tsl | Tsr | Tc | Bfl | Bfr | Bfc | LFE | LFE2,  //22.2
 };
 static int32u Ac4_ch_mode_2_nonstd(int8u ch_mode, bool b_4_back_channels_present=false, bool b_centre_present=false, int8u top_channels_present=0)
