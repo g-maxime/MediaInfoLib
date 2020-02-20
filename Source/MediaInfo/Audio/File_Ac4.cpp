@@ -838,7 +838,12 @@ void File_Ac4::Streams_Fill()
         }
         else
         {
-            ChannelMode="Object Audio";
+            for (size_t i=0; i<Presentation_Current.substream_group_info_specifiers.size(); i++)
+                if (!Groups[Presentation_Current.substream_group_info_specifiers[i]].b_channel_coded)
+                {
+                    ChannelMode="Object Audio";
+                    break;
+                }
         }
         string Summary=ChannelMode;
         if (!Summary.empty())
@@ -855,14 +860,14 @@ void File_Ac4::Streams_Fill()
             if (Group.ContentInfo.content_classifier!=(int8u)-1)
             {
                 int8u content_classifier=Group.ContentInfo.content_classifier;
-                if (Presentation_Current.presentation_config!=(int8u)-1 && g<3 && Ac4_presentation_config_split[Presentation_Current.presentation_config][g]==A
+                if (Presentation_Current.presentation_config!=(int8u)-1 && g<3 && Presentation_Current.presentation_config<Ac4_presentation_config_split_Size && Ac4_presentation_config_split[Presentation_Current.presentation_config][g]==A
                   && (content_classifier==VI ||content_classifier==HI || content_classifier==Co))
                     content_classifier=A;
                 presentation_config_String+=Value(Ac4_content_classifier, content_classifier);
                 if (Group.ContentInfo.content_classifier==D && (Presentation_Current.presentation_config==1 || Presentation_Current.presentation_config==4) && g==1)
                     presentation_config_String+=" Enhancement";
             }
-            else if (Presentation_Current.presentation_config!=(int8u)-1 && g<3 && Ac4_presentation_config_split[Presentation_Current.presentation_config][g]!=(int8u)-1)
+            else if (Presentation_Current.presentation_config!=(int8u)-1 && g<3 && Presentation_Current.presentation_config<Ac4_presentation_config_split_Size && Ac4_presentation_config_split[Presentation_Current.presentation_config][g]!=(int8u)-1)
             {
                 presentation_config_String+=Value(Ac4_content_classifier, Ac4_presentation_config_split[Presentation_Current.presentation_config][g]);
                 if (Ac4_presentation_config_split[Presentation_Current.presentation_config][g]==D && (Presentation_Current.presentation_config==1 || Presentation_Current.presentation_config==4) && g==1)
@@ -871,7 +876,7 @@ void File_Ac4::Streams_Fill()
             else if (Presentation_Current.presentation_config==(int8u)-1)
                 presentation_config_String+="Main";
             else
-                presentation_config_String+="?";
+                presentation_config_String+=Ztring::ToZtring(Presentation_Current.presentation_config).To_UTF8();
 
             if (!IsDolbyAtmos && Presentation_Current.presentation_version>=2)
             {
@@ -1138,7 +1143,7 @@ void File_Ac4::Streams_Fill()
         for (size_t s=0; s<Group.Substreams.size(); s++)
         {
             const group_substream& Substream=Group.Substreams[s];
-            if (Substream.ch_mode==(int8u)-1 && !Substream.b_ajoc && Substream.n_objects_code!=(int8u)-1)
+            if (!Group.b_channel_coded && !Substream.b_ajoc && Substream.n_objects_code!=(int8u)-1)
             {
                 n_objects+=objs_to_n_objects(Substream.n_objects_code, Substream.b_lfe);
                 if (Substream.nonstd_bed_channel_assignment_mask!=(int32u)-1)
@@ -1202,7 +1207,7 @@ void File_Ac4::Streams_Fill()
                 string ChannelMode2, ImmersiveStereo2;
                 if (GroupInfo.substream_index==Substream_Info->first)
                 {
-                    if (GroupInfo.ch_mode!=(int8u)-1)
+                    if (Groups[g].b_channel_coded)
                     {
                         ChannelMode2=Value(Ac4_ch_mode_String, GroupInfo.ch_mode);
                         if (GroupInfo.immersive_stereo!=(int8u)-1)
@@ -1295,12 +1300,12 @@ void File_Ac4::Streams_Fill()
                 if (Groups[i].Substreams[j].substream_index==Substream_Info->first)
                 {
                     const group_substream& GroupInfo=Groups[i].Substreams[j];
-                    if (GroupInfo.ch_mode!=(int8u)-1)
+                    if (Groups[i].b_channel_coded)
                     {
                         //Channel based
                         Fill_Dup(Stream_Audio, 0, (S + " ChannelLayout").c_str(), AC4_nonstd_bed_channel_assignment_mask_ChannelLayout(Ac4_ch_mode_2_nonstd(GroupInfo.ch_mode, GroupInfo.b_4_back_channels_present, GroupInfo.b_centre_present, GroupInfo.top_channels_present)));
                     }
-                    else if (GroupInfo.ch_mode==(int8u)-1 && (GroupInfo.b_ajoc || GroupInfo.n_objects_code!=(int8u)-1))
+                    else if (!Groups[i].b_channel_coded && (GroupInfo.b_ajoc || GroupInfo.n_objects_code!=(int8u)-1))
                     {
                         //Object based
                         int8u n_objects;
@@ -1855,7 +1860,7 @@ void File_Ac4::ac4_toc()
                     P.n_substreams_in_presentation++;
 
                     // pres_ch_mode && pres_ch_mode_core
-                    if (S.ch_mode!=(int8u)-1) // b_channel_coded
+                    if (Group.b_channel_coded)
                     {
                         P.pres_ch_mode=Superset(P.pres_ch_mode, S.ch_mode);
                         P.pres_ch_mode_core=Superset(P.pres_ch_mode_core, S.ch_mode_core);
@@ -2224,6 +2229,7 @@ void File_Ac4::ac4_substream_info(presentation& P)
             P.substream_group_info_specifiers.push_back(Groups.size()); //Fake group
             Groups.resize(Groups.size()+1);
             group& G=Groups.back();
+            G.b_channel_coded=true;
 
             G.ContentInfo=ContentInfo;
             G.Substreams.resize(1);
@@ -3058,7 +3064,7 @@ void File_Ac4::ac4_substream(size_t substream_index)
     // Skip audio
     const char* audio_data_name;
     int8u ch_mode_Save=GroupInfo.ch_mode;
-    if (GroupInfo.ch_mode!=(int8u)-1) //b_channel_coded
+    if (Groups[Group_Pos].b_channel_coded)
     {
         audio_data_name="audio_data_chan";
     }
