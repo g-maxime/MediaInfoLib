@@ -519,6 +519,7 @@ private :
         {}
     };
     vector<presentation> Presentations;
+    vector<presentation> Presentations_dac4;
 
     //Groups
     struct group_substream
@@ -571,6 +572,7 @@ private :
         bool b_hsf_ext;
     };
     vector<group> Groups;
+    vector<group> Groups_dac4;
 
     //Audio substreams
     struct buffer

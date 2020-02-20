@@ -802,8 +802,10 @@ void File_Ac4::Streams_Fill()
     */
     if (!IFrames_Value.empty())
         Fill(Stream_Audio, 0, "IFrameInterval", IFrames_Value);
-    Fill(Stream_Audio, 0, "NumberOfPresentations", Presentations.size());
-    Fill(Stream_Audio, 0, "NumberOfSubstreams", AudioSubstreams.size());
+    if (!Presentations.empty())
+        Fill(Stream_Audio, 0, "NumberOfPresentations", Presentations.size());
+    if (!AudioSubstreams.empty())
+        Fill(Stream_Audio, 0, "NumberOfSubstreams", AudioSubstreams.size());
 
     for (size_t p=0; p<Presentations.size(); p++)
     {
@@ -4306,11 +4308,11 @@ void File_Ac4::dac4()
     if (byte_align)
         Skip_S1(byte_align,                                     "byte_align");
     BS_End();
-    Presentations.resize(n_presentations);
+    Presentations_dac4.resize(n_presentations);
     for (int8u p=0; p<n_presentations; p++)
     {
         Element_Begin1("presentation");
-        presentation& P=Presentations[p];
+        presentation& P=Presentations_dac4[p];
 
         int32u pres_bytes;
         int8u  pres_bytes8;
@@ -4507,9 +4509,9 @@ void File_Ac4::ac4_presentation_v1_dsi(presentation& P)
 //---------------------------------------------------------------------------
 void File_Ac4::ac4_substream_group_dsi(presentation& P)
 {
-    P.substream_group_info_specifiers.push_back(Groups.size());
-    Groups.resize(Groups.size()+1);
-    group& G=Groups.back();
+    P.substream_group_info_specifiers.push_back(Groups_dac4.size());
+    Groups_dac4.resize(Groups_dac4.size()+1);
+    group& G=Groups_dac4.back();
 
     bool b_substreams_present;
     int8u n_substreams;
