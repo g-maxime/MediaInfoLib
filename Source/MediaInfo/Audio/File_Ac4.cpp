@@ -1340,6 +1340,9 @@ void File_Ac4::Streams_Fill()
         }
 
         //Info from group
+        bool b_channel_coded;
+        bool b_de_data_present;
+        int8u de_max_gain;
         for (size_t i=0; i <Groups.size(); i++)
         {
             for (size_t j=0; j<Groups[i].Substreams.size(); j++)
@@ -1349,9 +1352,14 @@ void File_Ac4::Streams_Fill()
                     if (Groups[i].b_channel_coded)
                     {
                         //Channel based
+                        b_channel_coded=true;
+                        const de_info& D=Substream_Info->second.DeInfo;
+                        b_de_data_present=D.b_de_data_present;
+                        if (b_de_data_present)
+                            de_max_gain=D.Config.de_max_gain;
                         Fill_Dup(Stream_Audio, 0, (S + " ChannelLayout").c_str(), AC4_nonstd_bed_channel_assignment_mask_ChannelLayout(Ac4_ch_mode_2_nonstd(GroupInfo.ch_mode, GroupInfo.b_4_back_channels_present, GroupInfo.b_centre_present, GroupInfo.top_channels_present)));
                     }
-                    else if (!Groups[i].b_channel_coded && (GroupInfo.b_ajoc || GroupInfo.n_objects_code!=(int8u)-1))
+                    else if (GroupInfo.b_ajoc || GroupInfo.n_objects_code!=(int8u)-1)
                     {
                         //Object based
                         int8u n_objects;
@@ -1359,6 +1367,9 @@ void File_Ac4::Streams_Fill()
                         {
                             n_objects=objs_to_n_objects(GroupInfo.n_objects_code, GroupInfo.b_lfe);
                             Fill_Dup(Stream_Audio, 0, (S+" NumberOfObjects").c_str(), Ztring::ToZtring(n_objects));
+                            b_de_data_present=Groups[i].ContentInfo.content_classifier==4; // b_dialog
+                            if (b_de_data_present)
+                                de_max_gain=Substream_Info->second.dialog_max_gain;
                         }
                         if (GroupInfo.nonstd_bed_channel_assignment_mask!=(int32u)-1)
                         {
@@ -1402,14 +1413,15 @@ void File_Ac4::Streams_Fill()
         }
         {
             const de_info& D=Substream_Info->second.DeInfo;
-            if (D.b_de_data_present)
+            if (b_de_data_present)
             {
                 Fill(Stream_Audio, 0, (S+" DialogueEnhancement").c_str(), "Yes");
                 Fill(Stream_Audio, 0, (S+" DialogueEnhancement Enabled").c_str(), "Yes");
                 if (D.Config.de_method!=(int8u)-1)
                 {
-                    Fill_Measure(Stream_Audio, 0, (S+" DialogueEnhancement MaxGain").c_str(), (D.Config.de_max_gain+1)*3, __T(" dB"));
-                    Fill(Stream_Audio, 0, (S+" DialogueEnhancement ChannelConfiguration").c_str(), Value(Ac4_de_channel_config, D.Config.de_channel_config));
+                    Fill_Measure(Stream_Audio, 0, (S+" DialogueEnhancement MaxGain").c_str(), (de_max_gain+1)*3, __T(" dB"));
+                    if (b_channel_coded)
+                        Fill(Stream_Audio, 0, (S+" DialogueEnhancement ChannelConfiguration").c_str(), Value(Ac4_de_channel_config, D.Config.de_channel_config));
                 }
             }
         }
@@ -1647,8 +1659,8 @@ void File_Ac4::raw_ac4_frame_substreams()
             Get_String (Encoded_Library_Size, Encoded_Library,  "Library name (guessed)");
             if (Retrieve_Const(Stream_Audio, 0, Audio_Encoded_Library).empty())
             {
-                Fill(Stream_General, 0, General_Encoded_Library, Encoded_Library);
-                Fill(Stream_Audio, 0, Audio_Encoded_Library, Encoded_Library);
+                //Fill(Stream_General, 0, General_Encoded_Library, Encoded_Library);
+                //Fill(Stream_Audio, 0, Audio_Encoded_Library, Encoded_Library);
             }
             payload_base-=(int32u)Encoded_Library_Size;
         }
@@ -3335,7 +3347,7 @@ void File_Ac4::metadata(audio_substream& AudioSubstream, size_t Substream_Index)
 
     Element_Begin1("metadata");
     basic_metadata(AudioSubstream.LoudnessInfo, AudioSubstream.Preprocessing, GroupInfo.ch_mode, GroupInfo.sus_ver);
-    extended_metadata(b_associated, b_dialog, GroupInfo.ch_mode, GroupInfo.sus_ver);
+    extended_metadata(AudioSubstream, b_associated, b_dialog, GroupInfo.ch_mode, GroupInfo.sus_ver);
 
     // TODO:
     // if (b_alternative && !b_ajoc)
@@ -3530,7 +3542,7 @@ void File_Ac4::basic_metadata(loudness_info& L, preprocessing& P, int8u ch_mode,
 }
 
 //---------------------------------------------------------------------------
-void File_Ac4::extended_metadata(bool b_associated, bool b_dialog, int8u ch_mode, bool sus_ver)
+void File_Ac4::extended_metadata(audio_substream& AudioSubstream, bool b_associated, bool b_dialog, int8u ch_mode, bool sus_ver)
 {
     Element_Begin1("extended_metadata");
     if (sus_ver)
@@ -3558,7 +3570,7 @@ void File_Ac4::extended_metadata(bool b_associated, bool b_dialog, int8u ch_mode
     if (b_dialog)
     {
         TEST_SB_SKIP(                                           "b_dialog_max_gain");
-            Skip_S1(2,                                          "dialog_max_gain");
+            Get_S1 (2, AudioSubstream.dialog_max_gain,          "dialog_max_gain");
         TEST_SB_END();
 
         TEST_SB_SKIP(                                           "b_pan_dialog_present");

@@ -631,6 +631,7 @@ private :
     struct audio_substream
     {
         loudness_info LoudnessInfo;
+        int8u dialog_max_gain;
         drc_info DrcInfo;
         de_info DeInfo;
         preprocessing Preprocessing;
@@ -639,6 +640,7 @@ private :
         bool b_iframe;
 
         audio_substream(bool b_iframe_=true) :
+            dialog_max_gain((int8u)-1),
             Buffer_Index(0),
             b_iframe(b_iframe_)
         {}
@@ -693,7 +695,7 @@ private :
 
     void metadata(audio_substream& AudioSubstream, size_t Substream_Index);
     void basic_metadata(loudness_info& LoudnessInfo, preprocessing& Preprocessing, int8u ch_mode, bool sus_ver);
-    void extended_metadata(bool b_associated, bool b_dialog, int8u ch_mode, bool sus_ver);
+    void extended_metadata(audio_substream& AudioSubstream, bool b_associated, bool b_dialog, int8u ch_mode, bool sus_ver);
     void dialog_enhancement(de_info& Info, int8u ch_mode, bool b_iframe);
     void dialog_enhancement_config(de_info& Info);
     void dialog_enhancement_data(de_info& Info, bool b_iframe, bool b_de_simulcast);
