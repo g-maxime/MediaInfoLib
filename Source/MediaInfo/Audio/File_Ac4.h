@@ -415,7 +415,7 @@ public :
         int8u de_channel_config;
 
         de_config() :
-            de_method((int8u)-1)
+            de_max_gain((int8u)-1)
         {}
     };
 

@@ -1340,8 +1340,8 @@ void File_Ac4::Streams_Fill()
         }
 
         //Info from group
-        bool b_channel_coded;
-        bool b_de_data_present;
+        bool b_channel_coded=false;
+        bool b_de_data_present=false;
         int8u de_max_gain;
         for (size_t i=0; i <Groups.size(); i++)
         {
@@ -1417,7 +1417,7 @@ void File_Ac4::Streams_Fill()
             {
                 Fill(Stream_Audio, 0, (S+" DialogueEnhancement").c_str(), "Yes");
                 Fill(Stream_Audio, 0, (S+" DialogueEnhancement Enabled").c_str(), "Yes");
-                if (D.Config.de_method!=(int8u)-1)
+                if (de_max_gain!=(int8u)-1)
                 {
                     Fill_Measure(Stream_Audio, 0, (S+" DialogueEnhancement MaxGain").c_str(), (de_max_gain+1)*3, __T(" dB"));
                     if (b_channel_coded)
