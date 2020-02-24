@@ -144,41 +144,41 @@ static const int16u Ac4_fs_index[2]=
 static const variable_size Ac4_channel_mode[]=
 {
     {13, 0}, // Total size
-    {1, 0b0},
-    {1, 0b10},
-    {2, 0b1100},
-    {0, 0b1101},
-    {0, 0b1110},
-    {3, 0b1111000},
-    {0, 0b1111001},
-    {0, 0b1111010},
-    {0, 0b1111011},
-    {0, 0b1111100},
-    {0, 0b1111101},
-    {0, 0b1111110},
-    {0, 0b1111111},
+    {1, 0x00}, // 0b0
+    {1, 0x01}, // 0b10
+    {2, 0x0C}, // 0b1100
+    {0, 0x0D}, // 0b1101
+    {0, 0x0E}, // 0b1110
+    {3, 0x78}, // 0b1111000
+    {0, 0x79}, // 0b1111001
+    {0, 0x7A}, // 0b1111010
+    {0, 0x7B}, // 0b1111011
+    {0, 0x7C}, // 0b1111100
+    {0, 0x7D}, // 0b1111101
+    {0, 0x7E}, // 0b1111110
+    {0, 0x7F}, // 0b1111111
 };
 
 static const variable_size Ac4_channel_mode2[]=
 {
     {17, 0}, // Total size
-    {1, 0b0},
-    {1, 0b10},
-    {2, 0b1100},
-    {0, 0b1101},
-    {0, 0b1110},
-    {3, 0b1111000},
-    {0, 0b1111001},
-    {0, 0b1111010},
-    {0, 0b1111011},
-    {0, 0b1111100},
-    {0, 0b1111101},
-    {1, 0b11111100},
-    {0, 0b11111101},
-    {1, 0b111111100},
-    {0, 0b111111101},
-    {0, 0b111111110},
-    {0, 0b111111111},
+    {1, 0x000}, // 0b0
+    {1, 0x002}, // 0b10
+    {2, 0x00C}, // 0b1100
+    {0, 0x00D}, // 0b1101
+    {0, 0x00E}, // 0b1110
+    {3, 0x078}, // 0b1111000
+    {0, 0x079}, // 0b1111001
+    {0, 0x07A}, // 0b1111010
+    {0, 0x07B}, // 0b1111011
+    {0, 0x07C}, // 0b1111100
+    {0, 0x07D}, // 0b1111101
+    {1, 0x0FC}, // 0b11111100
+    {0, 0x0FD}, // 0b11111101
+    {1, 0x1FC}, // 0b111111100
+    {0, 0x1FD}, // 0b111111101
+    {0, 0x1FE}, // 0b111111110
+    {0, 0x1FF}, // 0b111111111
 };
 
 enum content_classifier
@@ -937,7 +937,7 @@ void File_Ac4::Streams_Fill()
         }
         //if (presentation_config_String!=(Presentation_Current.presentation_config==(int8u)-1?"Main":Value(Ac4_presentation_config, Presentation_Current.presentation_config)))
         //    Fill(Stream_Audio, 0, "NOK", "presentation_config", -1, true, true);//TODO remove
-        Summary+=Presentation_Current.presentation_config==(int8u)-1?"Main":Value(Ac4_presentation_config, Presentation_Current.presentation_config);
+        Summary+=Presentation_Current.presentation_config==(int8u)-1?string("Main"):Value(Ac4_presentation_config, Presentation_Current.presentation_config);
 
         //Summary language
         if (!Presentation_Current.Language.empty())
@@ -965,7 +965,7 @@ void File_Ac4::Streams_Fill()
             Fill(Stream_Audio, 0, (P+" PresentationConfig").c_str(), Value(Ac4_presentation_config, Presentation_Current.presentation_config));
             Fill_SetOptions(Stream_Audio, 0, (P+" PresentationConfig").c_str(), "N NTY");
         }
-        if (!presentation_config_String.empty() && presentation_config_String!=(Presentation_Current.presentation_config==(int8u)-1?"Main":Value(Ac4_presentation_config, Presentation_Current.presentation_config)))
+        if (!presentation_config_String.empty() && presentation_config_String!=(Presentation_Current.presentation_config==(int8u)-1?string("Main"):Value(Ac4_presentation_config, Presentation_Current.presentation_config)))
         {
             Fill(Stream_Audio, 0, (P+" PresentationConfig_ContentClassifier").c_str(), presentation_config_String); //TODO
             Fill_SetOptions(Stream_Audio, 0, (P+" PresentationConfig_ContentClassifier").c_str(), "N NTY");
@@ -2729,7 +2729,7 @@ void File_Ac4::bed_dyn_obj_assignment(group_substream& G, int8u n_signals)
                         int8u n_bed_signals;
                         if (n_signals>1)
                         {
-                            int8u bed_ch_bits=ceil(log2(n_signals));
+                            int8u bed_ch_bits=ceil(log((float)n_signals)/log(2.0)); // ceil(log2(n_signals));
                             Get_S1(bed_ch_bits, n_bed_signals,  "n_bed_signals_minus1");
                             n_bed_signals++;
                         }
@@ -3226,7 +3226,7 @@ void File_Ac4::ac4_presentation_substream(size_t substream_index, size_t Substre
                 Skip_S1(5,                                      "loud_corr_target");
             TEST_SB_END();
 
-            for (int8u Pos2=0; Pos<P.n_substreams_in_presentation; Pos++)
+            for (int8u Pos2=0; Pos2<P.n_substreams_in_presentation; Pos2++)
             {
                 TEST_SB_SKIP(                                    "b_active");
                     TEST_SB_SKIP(                                "alt_data_set_index");
@@ -3680,15 +3680,15 @@ void File_Ac4::dialog_enhancement_data(de_info& Info, bool b_iframe, bool b_de_s
     int8u de_nr_channels=0, de_nr_bands=8;
     switch (Info.Config.de_channel_config)
     {
-        case 0b1:
-        case 0b10:
-        case 0b100:
+        case 0x1: // 0b001
+        case 0x2: // 0b010
+        case 0x4: // 0b100
             de_nr_channels=1; break;
-        case 0b11:
-        case 0b101:
-        case 0b110:
+        case 0x3: // 0b011
+        case 0x5: // 0b101
+        case 0x6: // 0b110
             de_nr_channels=2; break;
-        case 0b111:
+        case 0x7: // 0b111
             de_nr_channels=3; break;
     }
 
