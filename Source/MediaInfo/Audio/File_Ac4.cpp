@@ -1367,7 +1367,7 @@ void File_Ac4::Streams_Fill()
                         {
                             n_objects=objs_to_n_objects(GroupInfo.n_objects_code, GroupInfo.b_lfe);
                             Fill_Dup(Stream_Audio, 0, (S+" NumberOfObjects").c_str(), Ztring::ToZtring(n_objects));
-                            b_de_data_present=Groups[i].ContentInfo.content_classifier==4; // b_dialog
+                            b_de_data_present=Substream_Info->second.b_dialog;
                             if (b_de_data_present)
                                 de_max_gain=Substream_Info->second.dialog_max_gain;
                         }
@@ -3343,11 +3343,11 @@ void File_Ac4::metadata(audio_substream& AudioSubstream, size_t Substream_Index)
     const group_substream& GroupInfo=Groups[Group_Pos].Substreams[SubStream_Pos];
 
     bool b_associated=ContentInfo.content_classifier!=(int8u)-1 && ContentInfo.content_classifier>1; //TODO: from presentation_config if content_classifier not present
-    bool b_dialog=ContentInfo.content_classifier==4; //TODO: from presentation_config if content_classifier not present
+    AudioSubstream.b_dialog=ContentInfo.content_classifier==4; //TODO: from presentation_config if content_classifier not present
 
     Element_Begin1("metadata");
     basic_metadata(AudioSubstream.LoudnessInfo, AudioSubstream.Preprocessing, GroupInfo.ch_mode, GroupInfo.sus_ver);
-    extended_metadata(AudioSubstream, b_associated, b_dialog, GroupInfo.ch_mode, GroupInfo.sus_ver);
+    extended_metadata(AudioSubstream, b_associated, GroupInfo.ch_mode, GroupInfo.sus_ver);
 
     // TODO:
     // if (b_alternative && !b_ajoc)
@@ -3542,12 +3542,12 @@ void File_Ac4::basic_metadata(loudness_info& L, preprocessing& P, int8u ch_mode,
 }
 
 //---------------------------------------------------------------------------
-void File_Ac4::extended_metadata(audio_substream& AudioSubstream, bool b_associated, bool b_dialog, int8u ch_mode, bool sus_ver)
+void File_Ac4::extended_metadata(audio_substream& AudioSubstream, bool b_associated, int8u ch_mode, bool sus_ver)
 {
     Element_Begin1("extended_metadata");
     if (sus_ver)
     {
-        Get_SB(b_dialog,                                        "b_dialog");
+        Get_SB(AudioSubstream.b_dialog,                         "b_dialog");
     }
     else if (b_associated)
     {
@@ -3567,7 +3567,7 @@ void File_Ac4::extended_metadata(audio_substream& AudioSubstream, bool b_associa
             Skip_S1(8,                                          "pan_associated");
     }
 
-    if (b_dialog)
+    if (AudioSubstream.b_dialog)
     {
         TEST_SB_SKIP(                                           "b_dialog_max_gain");
             Get_S1 (2, AudioSubstream.dialog_max_gain,          "dialog_max_gain");
