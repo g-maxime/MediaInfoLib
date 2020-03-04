@@ -2150,7 +2150,7 @@ void MediaInfo_Config::Language_Set (const ZtringListList &NewValue)
         for (size_t Pos=0; Pos<NewValue.size(); Pos++)
             if (NewValue[Pos].size()>=2)
                 Language.Write(NewValue[Pos][0], NewValue[Pos][1]);
-            else if (NewValue[Pos].size()==1)
+            else if (NewValue[Pos].size()==1 && NewValue[0]==__T("  Config_Text_ThousandsSeparator")) // Only the thousands separator is authorized to be empty, else empty content means keeping default value
                 Language.Write(NewValue[Pos][0], Ztring());
     }
 

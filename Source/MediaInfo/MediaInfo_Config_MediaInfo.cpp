@@ -1639,7 +1639,9 @@ void MediaInfo_Config_MediaInfo::File_ExpandSubs_Update(void** Source)
                                 }
                             }
                         }
-                        Name=MediaInfoLib::Config.Language_Get(Name);
+                        Ztring TranslatedName=MediaInfoLib::Config.Language_Get(Name);
+                        if (!TranslatedName.empty())
+                            Name=TranslatedName;
                         Name.insert(0, Spaces, __T(' '));
                         if (Number)
                             Name+=__T(" #")+Ztring::ToZtring(Number);
