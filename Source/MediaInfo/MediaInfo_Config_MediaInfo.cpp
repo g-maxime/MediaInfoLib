@@ -1644,7 +1644,7 @@ void MediaInfo_Config_MediaInfo::File_ExpandSubs_Update(void** Source)
                             Name=TranslatedName;
                         Name.insert(0, Spaces, __T(' '));
                         if (Number)
-                            Name+=__T(" #")+Ztring::ToZtring(Number);
+                            Name+= MediaInfoLib::Config.Language_Get(__T("  Config_Text_NumberTag"))+Ztring::ToZtring(Number);
                         (*Stream_More)[StreamKind][StreamPos][Pos][Info_Name_Text]=Name;
                     }
                 }
