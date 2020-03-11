@@ -800,7 +800,7 @@ void File_Ac4::Streams_Fill()
         for (size_t i=1; i<IFrames.size(); i++)
             IFrames_IsVariable.insert(IFrames[i]-IFrames[i-1]);
         if (IFrames_IsVariable.size()==1)
-            IFrames_Value=Ztring::ToZtring(*IFrames_IsVariable.begin())+__T(" frames");
+            IFrames_Value=Ztring::ToZtring(*IFrames_IsVariable.begin());
         else if (IFrames_IsVariable.size()==2)
         {
             set<size_t>::iterator It=IFrames_IsVariable.begin();
@@ -813,13 +813,8 @@ void File_Ac4::Streams_Fill()
                     IFrames_Value=Ztring::ToZtring(Ac4_frame_rate[fs_index][frame_rate_index], 3);
                 else
                     IFrames_Value=Ztring::ToZtring(Value1)+__T('/')+Ztring::ToZtring(Value2);
-                IFrames_Value+=__T(" frames");
             }
-            else
-                IFrames_Value=__T("Variable");
         }
-        else
-            IFrames_Value=__T("Variable");
     }
 
     Fill(Stream_General, 0, General_Format, "AC-4");
@@ -837,7 +832,7 @@ void File_Ac4::Streams_Fill()
         Fill(Stream_Audio, 0, "IFrameInterval", IFrames_IsVariable?Ztring(__T("Variable")):(Ztring::ToZtring(IFrames_Value)+__T(" frames")));
     */
     if (!IFrames_Value.empty())
-        Fill(Stream_Audio, 0, "IFrameInterval", IFrames_Value);
+        Fill_Measure(Stream_Audio, 0, "IFrameInterval", IFrames_Value, __T(" frames"));
 
     // If no frame, use dac4 content
     bool IsUsingDac4;
