@@ -588,6 +588,7 @@ Ztring MediaInfo_Internal::Inform (stream_t StreamKind, size_t StreamPos, bool I
                     if (!Get((stream_t)StreamKind, StreamPos, Champ_Pos-1, Info_Name).rfind(Nom, Nom.size()))
                         ;//Retour+=__T("</a>");
                 }
+                #if defined(MEDIAINFO_XML_YES) || defined(MEDIAINFO_JSON_YES)
                 std::vector<Node*>* Fields_Next=Fields_Current;
                 if (XML || JSON)
                 {
@@ -623,7 +624,7 @@ Ztring MediaInfo_Internal::Inform (stream_t StreamKind, size_t StreamPos, bool I
                         size_t NumbersPos=SubName.find_last_not_of("0123456789");
                         if (NumbersPos!=(size_t)-1)
                             SubName.resize(NumbersPos+1);
-                        Node* Node_Sub=new Node(SubName);
+                        Node* Node_Sub=new Node(SubName.c_str(), true);
                         Fields_Next->push_back(Node_Sub);
                         Nested.resize(Nested.size()+1);
                         Nested.back().Name=Nom;
@@ -633,6 +634,7 @@ Ztring MediaInfo_Internal::Inform (stream_t StreamKind, size_t StreamPos, bool I
                     }
                     Nom.erase(0, Nom_ToErase);
                 }
+                #endif // defined(MEDIAINFO_XML_YES) || defined(MEDIAINFO_JSON_YES)
                 /*
                 if (Champ_Pos)
                 {
@@ -812,20 +814,6 @@ Ztring MediaInfo_Internal::Inform (stream_t StreamKind, size_t StreamPos, bool I
         #if defined(MEDIAINFO_XML_YES) || defined(MEDIAINFO_JSON_YES)
         for (size_t Field=0; Field < Fields.size(); Field++)
         {
-            if (Fields[Field]->Name == "extra")
-            {   std::string TmpRetour;
-                for (size_t Field2=0; Field2 < Fields[Field]->Childs.size(); Field2++)
-                    if (XML)
-                        TmpRetour+=To_XML(*(Fields[Field]->Childs[Field2]), 1, false, false);
-                    else if (JSON)
-                        TmpRetour+=To_JSON(*(Fields[Field]->Childs[Field2]), 1, false, false)+(Field2<Fields[Field]->Childs.size()-1?",\n":"");
-
-                Fields[Field]->Childs.clear();
-                Node* Node_Raw=new Node();
-                Node_Raw->RawContent=TmpRetour;
-                Fields[Field]->Childs.push_back(Node_Raw);
-            }
-
             if (XML)
                 Retour+=Ztring().From_UTF8(To_XML(*(Fields[Field]), 1, false, false));
             else if (JSON)
