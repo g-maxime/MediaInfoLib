@@ -1315,8 +1315,6 @@ void File_Ac4::Streams_Fill()
         Fill(Stream_Audio, 0, S.c_str(), Summary);
         Fill(Stream_Audio, 0, (S+" Index").c_str(), Substream_Info->first);
         Fill_SetOptions(Stream_Audio, 0, (S+" Index").c_str(), "N NIY");
-        //Fill(Stream_Audio, 0, (S+" ID").c_str(), AudioSubstream_Pos+1);
-        //Fill_SetOptions(Stream_Audio, 0, (S+" ID").c_str(), "N NIY");
         if (!ChannelMode.empty())
         {
             Fill(Stream_Audio, 0, (S+" ChannelMode").c_str(), ChannelMode);
@@ -1331,7 +1329,7 @@ void File_Ac4::Streams_Fill()
         //Info from group
         bool b_channel_coded=false;
         bool b_de_data_present=false;
-        int8u de_max_gain;
+        int8u de_max_gain, de_channel_config;
         for (size_t i=0; i <Groups.size(); i++)
         {
             for (size_t j=0; j<Groups[i].Substreams.size(); j++)
@@ -1343,9 +1341,12 @@ void File_Ac4::Streams_Fill()
                         //Channel based
                         b_channel_coded=true;
                         const de_info& D=Substream_Info->second.DeInfo;
-                        b_de_data_present=D.b_de_data_present;
-                        if (b_de_data_present)
-                            de_max_gain=D.Config.de_max_gain;
+                        //b_de_data_present=D.b_de_data_present;
+                        //if (b_de_data_present)
+                        //{
+                        //    de_max_gain=D.Config.de_max_gain;
+                        //    de_channel_config=D.Config.de_channel_config;
+                        //}
                         Fill_Dup(Stream_Audio, 0, (S + " ChannelLayout").c_str(), AC4_nonstd_bed_channel_assignment_mask_ChannelLayout(Ac4_ch_mode_2_nonstd(GroupInfo.ch_mode, GroupInfo.b_4_back_channels_present, GroupInfo.b_centre_present, GroupInfo.top_channels_present)));
                     }
                     else if (GroupInfo.b_ajoc || GroupInfo.n_objects_code!=(int8u)-1)
@@ -1356,9 +1357,12 @@ void File_Ac4::Streams_Fill()
                         {
                             n_objects=objs_to_n_objects(GroupInfo.n_objects_code, GroupInfo.b_lfe);
                             Fill_Dup(Stream_Audio, 0, (S+" NumberOfObjects").c_str(), Ztring::ToZtring(n_objects));
-                            b_de_data_present=Substream_Info->second.b_dialog;
-                            if (b_de_data_present)
-                                de_max_gain=Substream_Info->second.dialog_max_gain;
+                            //b_de_data_present=Substream_Info->second.b_dialog;
+                            //if (b_de_data_present)
+                            //{
+                            //    de_max_gain=Substream_Info->second.dialog_max_gain;
+                            //    de_channel_config=(int8u)-1;
+                            //}
                         }
                         if (GroupInfo.nonstd_bed_channel_assignment_mask!=(int32u)-1)
                         {
@@ -1402,6 +1406,21 @@ void File_Ac4::Streams_Fill()
         }
         {
             const de_info& D=Substream_Info->second.DeInfo;
+            b_de_data_present=Substream_Info->second.b_dialog;
+            if (b_de_data_present)
+            {
+                de_max_gain=Substream_Info->second.dialog_max_gain;
+                de_channel_config=(int8u)-1;
+            }
+            else
+            {
+                b_de_data_present=D.b_de_data_present;
+                if (b_de_data_present)
+                {
+                    de_max_gain=D.Config.de_max_gain;
+                    de_channel_config=D.Config.de_channel_config;
+                }
+            }
             if (b_de_data_present)
             {
                 Fill(Stream_Audio, 0, (S+" DialogueEnhancement").c_str(), "Yes");
@@ -1409,8 +1428,8 @@ void File_Ac4::Streams_Fill()
                 if (de_max_gain!=(int8u)-1)
                 {
                     Fill_Measure(Stream_Audio, 0, (S+" DialogueEnhancement MaxGain").c_str(), (de_max_gain+1)*3, __T(" dB"));
-                    if (b_channel_coded)
-                        Fill(Stream_Audio, 0, (S+" DialogueEnhancement ChannelConfiguration").c_str(), Value(Ac4_de_channel_config, D.Config.de_channel_config));
+                    if (de_channel_config!=(int8u)-1)
+                        Fill(Stream_Audio, 0, (S+" DialogueEnhancement ChannelConfiguration").c_str(), Value(Ac4_de_channel_config, de_channel_config));
                 }
             }
         }
