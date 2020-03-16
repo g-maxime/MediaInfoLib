@@ -624,7 +624,10 @@ Ztring MediaInfo_Internal::Inform (stream_t StreamKind, size_t StreamPos, bool I
                         size_t NumbersPos=SubName.find_last_not_of("0123456789");
                         if (NumbersPos!=(size_t)-1)
                             SubName.resize(NumbersPos+1);
-                        Node* Node_Sub=new Node(SubName.c_str(), true);
+                        bool IsArray=false;
+                        if (SubName=="Presentation" || SubName=="Group" || SubName=="Substream")
+                            IsArray=true;
+                        Node* Node_Sub=new Node(SubName.c_str(), IsArray);
                         Fields_Next->push_back(Node_Sub);
                         Nested.resize(Nested.size()+1);
                         Nested.back().Name=Nom;
