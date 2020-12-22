@@ -53,12 +53,7 @@ if [ "$1" = "--emscripten-lib" ]; then
     Make="emmake make"
     CFLAGS="$CFLAGS -Oz -DUNICODE"
     CXXFLAGS="$CXXFLAGS -Oz -DUNICODE -fno-exceptions"
-    MediaInfoLib_CXXFLAGS="-I ../../../Source -I ../../../../ZenLib/Source -s USE_ZLIB=1 \
-    -DMEDIAINFO_ADVANCED_NO -DMEDIAINFO_REFERENCES_NO -DMEDIAINFO_FILTER_NO -DMEDIAINFO_DUPLICATE_NO -DMEDIAINFO_MACROBLOCKS_NO \
-    -DMEDIAINFO_TRACE_NO -DMEDIAINFO_TRACE_FFV1CONTENT_NO -DMEDIAINFO_IBI_NO -DMEDIAINFO_DIRECTORY_NO -DMEDIAINFO_JNI_NO\
-    -DMEDIAINFO_LIBCURL_NO -DMEDIAINFO_LIBMMS_NO -DMEDIAINFO_DVDIF_ANALYZE_NO -DMEDIAINFO_MPEGTS_DUPLICATE_NO \
-    -DMEDIAINFO_READTHREAD_NO -DMEDIAINFO_MD5_NO -DMEDIAINFO_SHA1_NO -DMEDIAINFO_SHA2_NO -DMEDIAINFO_EVENTS_NO \
-    -DMEDIAINFO_DEMUX_NO -DMEDIAINFO_AES_NO -DMEDIAINFO_FIXITY_NO -DMEDIAINFO_READER_NO -DMEDIAINFO_NEXTPACKET_NO"
+    MediaInfoLib_CXXFLAGS="-I ../../../Source -I ../../../../ZenLib/Source -s USE_ZLIB=1"
 fi
 
 ##################################################################
@@ -129,7 +124,7 @@ cd $Home
 cd MediaInfoLib/Project/GNU/Library/
 if [ "$OS" = "emscripten" ]; then
     em++ $CXXFLAGS $MediaInfoLib_CXXFLAGS --bind -c ../../../Source/MediaInfoDLL/MediaInfoJS.cpp
-    em++ $CXXFLAGS $MediaInfoLib_CXXFLAGS -s TOTAL_MEMORY=134217728 -s NO_FILESYSTEM=1 -s MODULARIZE=1 \
+    em++ $CXXFLAGS $MediaInfoLib_CXXFLAGS -s TOTAL_MEMORY=134217728 -s FORCE_FILESYSTEM=1 -s MODULARIZE=1 \
     --llvm-lto 0 --closure 1 --bind ../../../Source/MediaInfoDLL/MediaInfoJS.o .libs/libmediainfo.a \
     ../../../../ZenLib/Project/GNU/Library/.libs/libzen.a -o MediaInfo.js
 
