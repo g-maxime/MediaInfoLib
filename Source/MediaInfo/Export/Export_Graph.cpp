@@ -24,6 +24,7 @@
 #include "MediaInfo/Export/Export_Graph.h"
 #include "MediaInfo/File__Analyse_Automatic.h"
 #include "MediaInfo/MediaInfo_Config.h"
+#include "MediaInfo/OutputHelpers.h"
 #include <ctime>
 #include <cmath>
 
@@ -59,9 +60,16 @@ Ztring Element2Html(MediaInfo_Internal &MI, stream_t StreamKind, size_t StreamPo
     ToReturn+=__T("<tr>");
     ToReturn+=__T("<td colspan='2' bgcolor='")+HBG+__T("'>");
     ToReturn+=__T("<font color='")+HFG+__T("'>");
-    ToReturn+=__T("<b>")+MI.Get(StreamKind, StreamPos, Element, Info_Name_Text)+__T("</b>");
+    ToReturn+=__T("<b>")+XML_Encode(MI.Get(StreamKind, StreamPos, Element, Info_Name_Text))+__T("</b>");
     ToReturn+=__T("<br/>");
-    ToReturn+=MI.Get(StreamKind, StreamPos, Element, Info_Text);
+    Ztring Sub=XML_Encode(MI.Get(StreamKind, StreamPos, Element, Info_Text));
+    if (Sub.size() && Sub[Sub.size()-1]==__T(')'))
+    {
+        if (Sub.FindAndReplace(__T("("), __T("<br/>"), 0))
+            Sub.erase(Sub.size()-1);
+    }
+    Sub.FindAndReplace(__T(" / "), __T("<br/>"), 0, Ztring_Recursive);
+    ToReturn+=Sub;
     ToReturn+=__T("</font>");
     ToReturn+=__T("</td>");
     ToReturn+=__T("</tr>");
@@ -71,7 +79,9 @@ Ztring Element2Html(MediaInfo_Internal &MI, stream_t StreamKind, size_t StreamPo
         Ztring Name=MI.Get(StreamKind, StreamPos, Pos, Info_Name);
         if (Name.find(Element+__T(" "))==0 && Name.SubString(Element+__T(" "), __T("")).find(__T(" "))==string::npos)
         {
-            Ztring Text=MI.Get(StreamKind, StreamPos, Pos, Info_Text);
+            Ztring Text=XML_Encode(MI.Get(StreamKind, StreamPos, Pos, Info_Text));
+            Text.FindAndReplace(__T(" / "), __T("<br align='left'/>"), 0, Ztring_Recursive);
+
             if (Text.empty() ||
                 Name.find(Element+__T(" LinkedTo_"))==0 ||
                 Name.find(Element+__T(" Title"))==0 ||
@@ -80,7 +90,7 @@ Ztring Element2Html(MediaInfo_Internal &MI, stream_t StreamKind, size_t StreamPo
 
             ToReturn+=__T("<tr>");
             ToReturn+=__T("<td align='text' bgcolor='")+BG+__T("'>");
-            ToReturn+=__T("<font color='")+FG+__T("'>")+MI.Get(StreamKind, StreamPos, Pos, Info_Name_Text)+=__T("</font><br align='left'/>");
+            ToReturn+=__T("<font color='")+FG+__T("'>")+XML_Encode(MI.Get(StreamKind, StreamPos, Pos, Info_Name_Text))+=__T("</font><br align='left'/>");
             ToReturn+=__T("</td>");
             ToReturn+=__T("<td align='text' bgcolor='")+BG+__T("'>");
             ToReturn+=__T("<font color='")+FG+__T("'>")+Text+=__T("</font><br align='left'/>");
@@ -434,7 +444,7 @@ Ztring Export_Graph::Transform(MediaInfo_Internal &MI, Export_Graph::graph Graph
     ToReturn+=NewLine(Level)+__T("color=\"#1565c0\"");
     ToReturn+=NewLine(Level)+__T("fontcolor=\"#1565c0\"");
     ToReturn+=NewLine(Level)+__T("labelloc=t");
-    ToReturn+=NewLine(Level)+__T("label=<<b>")+MI.Get(Stream_General, 0, General_FileNameExtension)+__T("</b>>");
+    ToReturn+=NewLine(Level)+__T("label=<<b>")+XML_Encode(MI.Get(Stream_General, 0, General_FileNameExtension))+__T("</b>>");
     for (size_t StreamPos=0; StreamPos<(size_t)MI.Count_Get(Stream_Audio); StreamPos++)
     {
         #if defined(MEDIAINFO_AC4_YES)
