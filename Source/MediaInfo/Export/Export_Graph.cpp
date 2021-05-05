@@ -304,7 +304,7 @@ Ztring Export_Graph::Ac4_Graph(MediaInfo_Internal &MI, size_t StreamPos, size_t 
 Ztring Export_Graph::Adm_Graph(MediaInfo_Internal &MI, size_t StreamPos, size_t Level)
 {
     Ztring ToReturn;
-    if (MI.Get(Stream_Audio, StreamPos, Audio_Format)!=__T("ADM"))
+    if (MI.Get(Stream_Audio, StreamPos, __T("NumberOfProgrammes"), Info_Text).To_int64u()==0)
         return ToReturn;
 
     vector<relation> Relations;
@@ -438,11 +438,11 @@ Ztring Export_Graph::Transform(MediaInfo_Internal &MI, Export_Graph::graph Graph
     for (size_t StreamPos=0; StreamPos<(size_t)MI.Count_Get(Stream_Audio); StreamPos++)
     {
         #if defined(MEDIAINFO_AC4_YES)
-            if ((Graph==Graph_All || Graph==Graph_Ac4) && MI.Get(Stream_Audio, StreamPos, Audio_Format)==__T("AC-4"))
+            if (Graph==Graph_All || Graph==Graph_Ac4)
                 ToReturn+=Ac4_Graph(MI, StreamPos, Level);
         #endif //defined(MEDIAINFO_AC4_YES)
         #if defined(MEDIAINFO_ADM_YES)
-            if ((Graph==Graph_All || Graph==Graph_Adm) && MI.Get(Stream_Audio, StreamPos, Audio_Format)==__T("ADM"))
+            if (Graph==Graph_All || Graph==Graph_Adm)
                 ToReturn+=Adm_Graph(MI, StreamPos, Level);
         #endif //defined(MEDIAINFO_ADM_YES)
         #if defined(MEDIAINFO_MPEGH3DA_YES)
