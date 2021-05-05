@@ -631,7 +631,7 @@ bool File_Adm::FileHeader_Begin()
 
     #define FILL_COUNT(NAME,FIELD) \
         if (!File_Adm_Private->Items[item_##NAME].Items.empty()) \
-            Fill(Stream_Audio, 0, "NumberOf"FIELD"s", File_Adm_Private->Items[item_##NAME].Items.size());
+            Fill(Stream_Audio, 0, "NumberOf" FIELD "s", File_Adm_Private->Items[item_##NAME].Items.size());
 
     #define FILL_START(NAME,ATTRIBUTE,FIELD) \
         for (size_t i = 0; i < File_Adm_Private->Items[item_##NAME].Items.size(); i++) { \
@@ -647,26 +647,30 @@ bool File_Adm::FileHeader_Begin()
         } \
 
     #define LINK(NAME,FIELD,VECTOR,TARGET) \
-        Apply_SubStreams(*this, P + " LinkedTo_"FIELD"_Pos", File_Adm_Private->Items[item_##NAME].Items[i], NAME##_##VECTOR, File_Adm_Private->Items[item_##TARGET]); \
+        Apply_SubStreams(*this, P + " LinkedTo_" FIELD "_Pos", File_Adm_Private->Items[item_##NAME].Items[i], NAME##_##VECTOR, File_Adm_Private->Items[item_##TARGET]); \
 
     //Filling
     Accept("ADM");
     Stream_Prepare(Stream_Audio);
     if (!IsSub)
         Fill(Stream_Audio, StreamPos_Last, Audio_Format, "ADM");
-    FILL_COUNT(audioProgramme, "Programme");
-    FILL_COUNT(audioContent, "Content");
-    FILL_COUNT(audioObject, "Object");
-    FILL_COUNT(audioPackFormat, "PackFormat");
-    FILL_COUNT(audioChannelFormat, "ChannelFormat");
-    FILL_COUNT(audioTrackUID, "TrackUID");
-    FILL_COUNT(audioTrackFormat, "TrackFormat");
-    FILL_COUNT(audioStreamFormat, "StreamFormat");
+
     size_t TotalCount = 0;
     for (size_t i = 0; i < item_Max; i++)
         TotalCount += File_Adm_Private->Items[i].Items.size();
     bool Full = TotalCount < 100 ? true : false;
 
+    FILL_COUNT(audioProgramme, "Programme");
+    FILL_COUNT(audioContent, "Content");
+    FILL_COUNT(audioObject, "Object");
+    FILL_COUNT(audioPackFormat, "PackFormat");
+    FILL_COUNT(audioChannelFormat, "ChannelFormat");
+    if (Full)
+    {
+        FILL_COUNT(audioTrackUID, "TrackUID");
+        FILL_COUNT(audioTrackFormat, "TrackFormat");
+        FILL_COUNT(audioStreamFormat, "StreamFormat");
+    }
     FILL_START(audioProgramme, audioProgrammeName, "Programme")
         if (Full)
             FILL_A(audioProgramme, audioProgrammeID, "ID");
