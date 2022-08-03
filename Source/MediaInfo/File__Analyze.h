@@ -129,9 +129,9 @@ public :
     std::string ParserName;
     #if MEDIAINFO_EVENTS
         size_t  StreamIDs_Size;
-        int64u  StreamIDs[16];
-        int8u   StreamIDs_Width[16];
-        int8u   ParserIDs[16];
+        int64u* StreamIDs;
+        int8u*  StreamIDs_Width;
+        int8u*  ParserIDs;
         void    Event_Prepare (struct MediaInfo_Event_Generic* Event, int32u Event_Code, size_t Event_Size);
     #endif //MEDIAINFO_EVENTS
     #if MEDIAINFO_DEMUX

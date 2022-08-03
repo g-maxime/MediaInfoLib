@@ -187,6 +187,10 @@ File__Analyze::File__Analyze ()
 
     //In
     #if MEDIAINFO_EVENTS
+        StreamIDs=new int64u[16];
+        StreamIDs_Width=new int8u[16];
+        ParserIDs=new int8u[16];
+
         StreamIDs_Size=1;
         ParserIDs[0]=0x0;
         StreamIDs[0]=0;
@@ -359,6 +363,13 @@ File__Analyze::~File__Analyze ()
     delete BS; //BS=NULL;
     delete BT; //BS=NULL;
 
+    // Events
+    #if MEDIAINFO_EVENTS
+        delete[] StreamIDs; //StreamIDs=NULL;
+        delete[] ParserIDs; //ParserIDs=NULL;
+        delete[] StreamIDs_Width; //StreamIDs_Width=NULL;
+    #endif //MEDIAINFO_EVENTS
+
     //AES
     #if MEDIAINFO_AES
         delete AES; //AES=NULL;
@@ -473,6 +484,19 @@ void File__Analyze::Open_Buffer_Init (File__Analyze* Sub, int64u File_Size_)
         Sub->Init(Config);
     #endif //MEDIAINFO_TRACE
     #if MEDIAINFO_EVENTS
+
+
+        if (StreamIDs_Size>=15)
+        {
+            delete[] Sub->StreamIDs;
+            delete[] Sub->StreamIDs_Width;
+            delete[] Sub->ParserIDs;
+            Sub->StreamIDs=new int64u[StreamIDs_Size+1];
+            Sub->StreamIDs_Width=new int8u[StreamIDs_Size+1];
+            Sub->ParserIDs=new int8u[StreamIDs_Size+1];
+        }
+
+
         Sub->ParserIDs[StreamIDs_Size]=Sub->ParserIDs[0];
         Sub->StreamIDs_Width[StreamIDs_Size]=Sub->StreamIDs_Width[0];
         for (size_t Pos=0; Pos<StreamIDs_Size; Pos++)
