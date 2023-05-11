@@ -721,15 +721,15 @@ const int8s Aac_k0_offset[][2][16]=
         {  -8,  -7,  -6,  -5,  -4,  -3,  -2,  -1,   0,   1,   2,  3,  4,  5,  6,  7, },
         { -20, -19, -18, -17, -16, -15, -14, -13, -12, -11, -10, -9, -8, -7, -6, -5, },
     },
+    { //40000
+        { -20, -19, -18, -17, -16, -15, -14, -13, -12, -11, -10,  -8,  -6,  -4, -2,  0, },
+        { -27, -26, -25, -24, -23, -22, -21, -20, -19, -18, -17, -15, -13, -11, -9, -7, },
+    },
+
 };
-const int8s Aac_k0_40[2][16] =
-{ //40000
-    {12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 24, 26, 28, 30, 32},
-    { 5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, 17, 19, 21, 23, 25}
-};
-const int8u Aac_k0_startMin[9]=
+const int8u Aac_k0_startMin[10]=
 {
-     7,  7, 10, 11, 12, 16, 16, 17, 24, //32, 35, 48,  0,  0,  0,  0,
+     7,  7, 10, 11, 12, 16, 16, 17, 24, 32,// 35, 48,  0,  0,  0,  0,
 };
 
 //***************************************************************************
@@ -747,8 +747,6 @@ int8u Aac_AudioSpecificConfig_sampling_frequency_index(const int64s sampling_fre
 // k0 = lower frequency boundary
 int8u Aac_k0_Compute(int8u bs_start_freq, int8u extension_sampling_frequency_index, sbr_ratio ratio)
 {
-    if (extension_sampling_frequency_index == 17)
-        return Aac_k0_40[(int)ratio][bs_start_freq];
     return Aac_k0_startMin[extension_sampling_frequency_index]+Aac_k0_offset[extension_sampling_frequency_index][(int)ratio][bs_start_freq];
 }
 
@@ -993,6 +991,11 @@ bool Aac_bands_Compute(const int8u &num_env_bands_Master, int8u* f_Master, sbr_h
 bool Aac_Sbr_Compute(sbr_handler *sbr, const int64s sampling_frequency, bool usac)
 {
     int8u extension_sampling_frequency_index=Aac_AudioSpecificConfig_sampling_frequency_index((int32u)sampling_frequency, usac);
+    if (extension_sampling_frequency_index==17)
+        extension_sampling_frequency_index=9; // arrays have 40000 Hz item right after 16000 Hz item
+    else if (extension_sampling_frequency_index>9)
+        return false; //Not supported
+
     int8u k0=Aac_k0_Compute(sbr->bs_start_freq, extension_sampling_frequency_index, sbr->ratio);
     int8u k2=Aac_k2_Compute(sbr->bs_stop_freq, sampling_frequency, k0, sbr->ratio);
     if (k2<=k0) return false;
@@ -1002,12 +1005,12 @@ bool Aac_Sbr_Compute(sbr_handler *sbr, const int64s sampling_frequency, bool usa
         case  1 :
         case  2 :
         case  3 : if ((k2-k0)>32) return false; break;
-        case  17:
         case  4 : if ((k2-k0)>35) return false; break;
         case  5 :
         case  6 :
         case  7 :
-        case  8 : if ((k2-k0)>48) return false; break;
+        case  8 :
+        case  9: if ((k2-k0)>48) return false; break;
         default : ;
     }
 
