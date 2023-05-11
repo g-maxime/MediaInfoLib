@@ -29,6 +29,10 @@
 using namespace std;
 //---------------------------------------------------------------------------
 
+#include <fdk-aac/aacdecoder_lib.h>
+int FDKreadBits_Offset = 0;
+
+
 namespace MediaInfoLib
 {
 
@@ -566,8 +570,16 @@ int8u Aac_AudioSpecificConfig_sampling_frequency_index(const int64s sampling_fre
 }
 
 //---------------------------------------------------------------------------
+HANDLE_AACDECODER aacDecoderInfo;
 void File_Aac::AudioSpecificConfig (size_t End)
 {
+    FDKreadBits_Offset = File_Offset + Buffer_Offset;
+    aacDecoderInfo = aacDecoder_Open(TT_MP4_RAW, 1);
+    UCHAR* pBuffer = (UCHAR*)Buffer + Buffer_Offset;
+    UINT bufferSize = (UINT)Element_Size;
+    UINT bytesValid = bufferSize;
+    auto ErrorStatus = aacDecoder_ConfigRaw(aacDecoderInfo, &pBuffer, &bufferSize);
+
     //Parsing
     bool    sbrData=false, sbrPresentFlag=false, psData=false, psPresentFlag=false;
     Element_Begin1("AudioSpecificConfig");

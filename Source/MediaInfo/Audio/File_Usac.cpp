@@ -27,6 +27,12 @@
 #include <algorithm>
 #include <cmath>
 
+#include <fdk-aac/aacdecoder_lib.h>
+extern int FDKreadBits_Offset;
+
+#include <iostream>
+
+
 using namespace std;
 
 #define ARITH_ESCAPE 16
@@ -3666,8 +3672,22 @@ void File_Usac::streamId()
 #if MEDIAINFO_TRACE || MEDIAINFO_CONFORMANCE
 
 //---------------------------------------------------------------------------
+extern HANDLE_AACDECODER aacDecoderInfo;
 void File_Usac::UsacFrame(size_t BitsNotIncluded)
 {
+    if (IsParsingRaw <= 1)
+    {
+        FDKreadBits_Offset = File_Offset + Buffer_Offset;
+        UCHAR* pBuffer = (UCHAR*)Buffer + Buffer_Offset;
+        UINT bufferSize = (UINT)Element_Size;
+        UINT bytesValid = bufferSize;
+        auto ErrorStatus = aacDecoder_Fill(aacDecoderInfo, &pBuffer, &bufferSize, &bytesValid);
+
+        INT_PCM pTimeData[8192];
+        ErrorStatus = aacDecoder_DecodeFrame(aacDecoderInfo, pTimeData, 8192, 0);
+        ErrorStatus = ErrorStatus;
+    }
+
     #if MEDIAINFO_CONFORMANCE
         if (roll_distance_Values && roll_distance_FramePos && roll_distance_Values && !roll_distance_Values->empty())
         {
