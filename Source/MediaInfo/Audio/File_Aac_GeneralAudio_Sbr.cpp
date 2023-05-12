@@ -998,20 +998,29 @@ bool Aac_Sbr_Compute(sbr_handler *sbr, const int64s sampling_frequency, bool usa
 
     int8u k0=Aac_k0_Compute(sbr->bs_start_freq, extension_sampling_frequency_index, sbr->ratio);
     int8u k2=Aac_k2_Compute(sbr->bs_stop_freq, sampling_frequency, k0, sbr->ratio);
-    if (k2<=k0) return false;
-    switch (extension_sampling_frequency_index)
+    if (k2<=k0)
+        return false;
+    else if (sbr->ratio==QUAD)
     {
-        case  0 :
-        case  1 :
-        case  2 :
-        case  3 : if ((k2-k0)>32) return false; break;
-        case  4 : if ((k2-k0)>35) return false; break;
-        case  5 :
-        case  6 :
-        case  7 :
-        case  8 :
-        case  9: if ((k2-k0)>48) return false; break;
-        default : ;
+        if (k2-k0>56)
+            return false;
+    }
+    else
+    {
+        switch (extension_sampling_frequency_index)
+        {
+            case  0 :
+            case  1 :
+            case  2 :
+            case  3 : if ((k2-k0)>32) return false; break;
+            case  4 : if ((k2-k0)>35) return false; break;
+            case  5 :
+            case  6 :
+            case  7 :
+            case  8 : if ((k2-k0)>48) return false; break;
+            case  9 :
+            default : ;
+        }
     }
 
     int8u  num_env_bands_Master;

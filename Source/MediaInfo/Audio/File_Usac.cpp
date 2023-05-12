@@ -32,7 +32,6 @@ extern int FDKreadBits_Offset;
 
 #include <iostream>
 
-
 using namespace std;
 
 #define ARITH_ESCAPE 16
