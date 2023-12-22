@@ -38,6 +38,7 @@
 //---------------------------------------------------------------------------
 #include "MediaInfo/Audio/File_Adm.h"
 #include "ThirdParty/tfsxml/tfsxml.h"
+#include <algorithm>
 #include <bitset>
 using namespace ZenLib;
 using namespace std;
