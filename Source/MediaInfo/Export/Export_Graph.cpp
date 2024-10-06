@@ -617,6 +617,7 @@ Ztring Export_Graph::Transform(MediaInfo_Internal &MI, Export_Graph::graph Graph
         FileName=__T("&nbsp;");
 
     ToReturn+=__T("graph {");
+    ToReturn+=NewLine(Level)+__T("graph [dpi=72];");
     ToReturn+=NewLine(Level)+__T("color=\"#1565c0\"");
     ToReturn+=NewLine(Level)+__T("fontcolor=\"#1565c0\"");
     ToReturn+=NewLine(Level)+__T("labelloc=t");
