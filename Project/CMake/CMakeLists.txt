@@ -89,6 +89,7 @@ find_package(TinyXML)
 find_package(CURL)
 
 include_directories(${MediaInfoLib_SOURCES_PATH})
+include_directories(${MediaInfoLib_SOURCES_PATH}/ThirdParty)
 include_directories(${MediaInfoLib_SOURCES_PATH}/ThirdParty/md5/)
 include_directories(${MediaInfoLib_SOURCES_PATH}/ThirdParty/base64/)
 include_directories(${MediaInfoLib_SOURCES_PATH}/ThirdParty/aes-gladman/)
