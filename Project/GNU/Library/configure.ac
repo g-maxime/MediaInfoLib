@@ -905,7 +905,7 @@ dnl Unicode
 dnl
 if test "$enable_unicode" = "yes"; then
 	CXXFLAGS="$CXXFLAGS -DUNICODE"
-	MediaInfoLib_CXXFLAGS="$MediaInfoLib_CXXFLAGS -DUNICODE"
+	MediaInfoLib_CXXFLAGS="$MediaInfoLib_CXXFLAGS -DUNICODE -FMT_UNICODE=0"
 	MediaInfoLib_Unicode="yes"
 else
 	MediaInfoLib_Unicode="no"

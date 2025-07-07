@@ -385,6 +385,7 @@ endif()
 
 # disable some features. Maybe it should be enabled.
 target_compile_definitions(mediainfo PRIVATE MEDIAINFO_LIBMMS_NO)
+target_compile_definitions(mediainfo PRIVATE FMT_UNICODE=0)
 if(NOT CURL_FOUND)
   target_compile_definitions(mediainfo PRIVATE MEDIAINFO_LIBCURL_NO)
 else()
