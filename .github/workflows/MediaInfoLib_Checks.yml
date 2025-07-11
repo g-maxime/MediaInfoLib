@@ -6,23 +6,23 @@ jobs:
   Unix:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
         environement: [gcc, utf8, minified, minimal, minimal-with-xml, cmake]
         exclude:
-          - os: macos-latest
+          - os: [macos-latest, windows-latest]
             environement: utf8
-          - os: macos-latest
+          - os: [macos-latest, windows-latest]
             environement: minified
-          - os: macos-latest
+          - os: [macos-latest,  windows-latest]
             environement: minimal
-          - os: macos-latest
+          - os: [macos-latest,  windows-latest]
             environement: minimal-with-xml
         include:
           - environement: gcc
-            CXXFLAGS: ""
+            CXXFLAGS: "-D_POSIX_C_SOURCE"
             RUN_TESTS: "all"
           - environement: cmake
-            CXXFLAGS: ""
+            CXXFLAGS: "-D_POSIX_C_SOURCE"
             RUN_TESTS: "all"
           - environement: minified
             CXXFLAGS: "-DMEDIAINFO_ADVANCED_NO -DMEDIAINFO_ARCHIVE_NO -DMEDIAINFO_DEMUX_NO -DMEDIAINFO_DVDIF_ANALYZE_NO -DMEDIAINFO_EVENTS_NO -DMEDIAINFO_LIBCURL_NO -DMEDIAINFO_LIBMMS_NO -DMEDIAINFO_MD5_NO -DMEDIAINFO_MINIMAL_YES -DMEDIAINFO_MPEGTS_DUPLICATE_NO -DMEDIAINFO_N19_NO -DMEDIAINFO_OTHERTEXT_NO -DMEDIAINFO_TRACE_NO -DMEDIAINFO_READTHREAD_NO -DMEDIAINFO_EXPORT_NO -DMEDIAINFO_TEXT_YES"
@@ -40,10 +40,14 @@ jobs:
       S3_PASS: ${{ secrets.S3_PASS }}
       CXXFLAGS: -Werror -Wno-error=deprecated-declarations ${{ matrix.CXXFLAGS }}
       RUN_TESTS: ${{ matrix.RUN_TESTS }}
+    defaults:
+      run:
+        shell: msys2 {0}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Dependencies
+        if: ${{ matrix.os != 'windows-latest' }}
         run: |
           if [ "$RUNNER_OS" == "Linux" ]; then
             sudo apt-get update -y
@@ -52,6 +56,13 @@ jobs:
           if [ "$RUNNER_OS" == "macOS" ]; then
             brew install libtool automake
           fi
+      - name: "Dependencies (MINGW)"
+        if: ${{ matrix.os == 'windows-latest' }}
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: mingw64
+          update: true
+          install: git make cmake mingw-w64-x86_64-autotools mingw-w64-x86_64-gcc mingw-w64-x86_64-zlib
       - name: ZenLib
         run: |
           git -C .. clone --depth=1 https://github.com/MediaArea/ZenLib.git
@@ -87,7 +98,7 @@ jobs:
         run: |
           mkdir Project/CMake/Build
           cd Project/CMake/Build
-          cmake -DBUILD_ZENLIB=1 ..
+          cmake -G "Unix Makefiles" -DBUILD_ZENLIB=1 ..
           make -j4
 
   Windows:
