@@ -7,6 +7,10 @@ x Correction
 bug reports and feature request are here:
 https://sourceforge.net/p/mediainfo/_list/tickets
 
+Version 25.07.1, 2025-07-30
+-------------
+Exif: Fix rational parsing when MEDIAINFO_TRACE_NO
+
 Version 25.07, 2025-07-29
 -------------
 + MPEG-4 : Support of Spherical Video 2
