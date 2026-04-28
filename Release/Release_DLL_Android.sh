@@ -38,8 +38,8 @@ abis=(arm64-v8a armeabi-v7a x86_64 x86)
 for abi in "${abis[@]}" ; do
     mkdir -p "$releasedir"/build/$abi
     pushd "$releasedir"/build/$abi
-        cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$NDK"/build/cmake/android.toolchain.cmake -DANDROID_ABI=$abi -DANDROID_PLATFORM=android-$MINSDKVERSION -DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON -DBUILD_SHARED_LIBS=1 -DBUILD_ZENLIB=1 "$releasedir"/../Project/CMake
-        ninja
+        cmake --debug-output -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$NDK"/build/cmake/android.toolchain.cmake -DANDROID_ABI=$abi -DANDROID_PLATFORM=android-$MINSDKVERSION -DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON -DBUILD_SHARED_LIBS=1 -DBUILD_ZENLIB=1 "$releasedir"/../Project/CMake
+        ninja -v
         mkdir -p "$releasedir"/MediaInfo_DLL_Android/lib/$abi
         cp libmediainfo.so "$releasedir"/MediaInfo_DLL_Android/lib/$abi
     popd
